@@ -1,0 +1,92 @@
+html, body {
+    background: #111;
+    vertical-align: middle;
+    height: 100%;
+    margin: 0;
+    background-image: url(/img/kkutu/gamebg.png);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+#Top{
+    background-color: #FFC000;
+    background-image: none;
+    height: 55px;
+}
+#Top .menu-btn{
+    color: #111111;
+    background-color: #FFC000;
+    background-image: none;
+}
+.Menu{
+    height: 100%;
+}
+#headlogo{
+    padding-left: 10px;
+}
+#account-info{
+    line-height: 35px;
+    vertical-align: middle;
+    padding-right: 10%;
+    font-weight: bold;
+    transition: all 300ms ease;
+}
+    #account-info:hover{
+        font-size: 16pt;
+    }
+#Top .menu-sub-btn{ color: #222222; }
+.wrap{
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.box{
+    width: 300px;
+    height: 200px;
+    border: none;
+    text-align: center;
+    background-color: rgb(42, 42, 42);
+    border-radius: 50px;
+    box-shadow: 0 0 10px 0 #141414;
+}
+#main-image{
+    width: 80%;
+    margin-top: 50px;
+}
+.account-image{
+    width: 40px;
+    transition: all 300ms ease;
+}
+.main-button{
+    display: inline-block;
+    width: 290px;
+    height: 40px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    transition: all 300ms ease;
+    border-radius: 40px;
+    font-size: 28px;
+    box-shadow: 0 0 10px 0 #141414;
+}
+.main-button:active{
+    width: 320px;
+}
+    #game-start{
+        background-color: rgb(255, 250, 201);
+    }
+    #discord-login{
+        margin-top: 10px;
+        background-color: #5865F2;
+    }
+#play-guest{
+    cursor: pointer;
+    transition: all 300ms ease;
+    color: #fff;
+}
+    #play-guest:active{
+        font-size: 18pt;
+    }

@@ -1,0 +1,25 @@
+extends layout_home
+
+block Subject
+    title= "끄투에서 한 걸음 더 가면 트꾸!"
+
+block CSS 
+    link(rel='stylesheet', href='/css/in_m_home.css')
+
+block JS
+    script(type='text/javascript', src='/js/in_portal_min.js')
+
+block Middle
+    .wrap
+        .box
+            div
+                img#main-image(src='/img/kkutu/tukku_main.png')
+            h3(style="font-weight: bold; color: #FFCE43;")= "끄투에서 한 걸음 더 가면 트꾸!"
+        //- button#game-start ➔ 트꾸 시작하기
+        if JSON.stringify(SESSION.profile)
+            button.main-button#game-start(onclick='location.href = "/?server=0#";') GAME START
+        else
+            button.main-button#discord-login(onclick='location.href = "/login/discord";')
+                div(style="line-height: 100%;")
+                    img.account-image(src='/img/kkutu/discord.png')
+            a#play-guest(onclick='location.href = "/?server=0#";')= "게스트로 참여하기"
