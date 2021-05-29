@@ -1,10 +1,7 @@
-Client/node_modules
-Server/run.bat
-Server/node_modules
-Server/lib/node_modules
-Server/lib/Web/public/js/**
-!Server/lib/Web/public/js/jquery.js
-Server/lib/sub/auth.json
-Server/lib/sub/global.json
+node_modules
+Web/public/js/**
+Web/public/js/jquery.js
+sub/auth.json
+sub/global.json
 .vscode
 .min.js
