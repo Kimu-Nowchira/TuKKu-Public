@@ -1,0 +1,7 @@
+node_modules
+Web/public/js/**
+Web/public/js/jquery.js
+sub/auth.json
+sub/global.json
+.vscode
+.min.js
