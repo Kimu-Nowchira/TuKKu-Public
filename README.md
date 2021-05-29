@@ -5,7 +5,9 @@
 
 https://github.com/JJoriping/KKuTu
 
-오리지널 끄투 레포에 Web이랑 Game만 지워서 바꾸면 될 거예요!
+# 사용 방법
+오리지널 끄투 레포에 Web이랑 Game만 지워서 여기의 파일로 바꿔 주시면 됩니다.
+그리고, DB 구조가 달라서 인게임 오류가 발생할 수 있으니 kkutu_ko에 range (integer)와 relay (integer) 컬럼을 추가해 주세요!
 
 # 트꾸 2021 5월 버전
 - 트꾸 봇 3종 탑재(공격, 장문, 역장)
