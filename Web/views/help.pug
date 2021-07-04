@@ -25,6 +25,7 @@ mixin Img(name, w, h)
 
 block JS
 	script(type='text/javascript', src='/js/jquery.js')
+	script(type='text/javascript', src='/js/jquery-ui.min.js')
 	script(type='text/javascript', src='/js/in_game_kkutu_help.min.js')
 
 block CSS
@@ -91,6 +92,7 @@ block Middle
 				+Img('intro')
 				h3 글자로 놀자! 끄투 온라인에 오신 것을 환영합니다.
 				h4 끄투에 대한 궁금한 점을 왼쪽 목차에서 골라 풀어 보세요.
+				div 트꾸 공개 레포지토리 (https://github.com/Kimu-Nowchira/TuKKu-Public)
 				div(style="color: #666")
 					h5= L("GPL")
 		div.page-body#box-c1

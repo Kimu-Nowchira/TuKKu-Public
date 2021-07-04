@@ -44,18 +44,18 @@ var WDIC = {};
 
 const DEVELOP = exports.DEVELOP = global.test || false;
 const GUEST_PERMISSION = exports.GUEST_PERMISSION = {
-	'create': true,
-	'enter': true,
-	'talk': true,
-	'practice': true,
-	'into-botroom': true,
-	'ready': true,
-	'start': true,
-	'invite': true,
-	'inviteRes': true,
-	'kick': true,
-	'kickVote': true,
-	'wp': true
+	'create': false,
+	'enter': false,
+	'talk': false,
+	'practice': false,
+	'into-botroom': false,
+	'ready': false,
+	'start': false,
+	'invite': false,
+	'inviteRes': false,
+	'kick': false,
+	'kickVote': false,
+	'wp': false
 };
 const ENABLE_ROUND_TIME = exports.ENABLE_ROUND_TIME = [ 10, 30, 60, 90, 120, 150 ];
 const ENABLE_FORM = exports.ENABLE_FORM = [ "S", "J" ];
@@ -387,6 +387,8 @@ function joinNewUser($c) {
 		id: $c.id,
 		guest: $c.guest,
 		box: $c.box,
+		nickname: $c.nickname,
+		exordial: $c.exordial,
 		playTime: $c.data.playTime,
 		okg: $c.okgCount,
 		users: KKuTu.getUserList(),
@@ -398,6 +400,21 @@ function joinNewUser($c) {
 	});
 	narrateFriends($c.id, $c.friends, "on");
 	KKuTu.publish('conn', {user: $c.getData()});
+
+	setInterval(() => {
+		$c.send('reloadData', {
+			id: $c.id,
+			box: $c.box,
+			nickname: $c.nickname,
+			exordial: $c.exordial,
+			playTime: $c.data.playTime,
+			okg: $c.okgCount,
+			users: KKuTu.getUserList(),
+			rooms: KKuTu.getRoomList(),
+			friends: $c.friends,
+			admin: $c.admin
+		});
+	}, 18000);
 
 	JLog.info("New user #" + $c.id);
 }
@@ -440,9 +457,26 @@ function processClientRequest($c, msg) {
 
 			$c.publish('yell', {value: msg.value});
 			break;
+		case 'reloadData':
+			$c.send('reloadData', {
+				id: $c.id,
+				box: $c.box,
+				nickname: $c.nickname,
+				exordial: $c.exordial,
+				playTime: $c.data.playTime,
+				okg: $c.okgCount,
+				users: KKuTu.getUserList(),
+				rooms: KKuTu.getRoomList(),
+				friends: $c.friends,
+				admin: $c.admin
+			});
 		case 'refresh':
 			$c.refresh();
 			break;
+		case 'bulkRefresh':
+			for(let i in DIC) DIC[i].refresh();
+			break;
+
 		// 채팅 입력 전부 (단어 입력도 포함)
 		// 일반 채팅의 경우 : {"type": "talk", "value": "채팅내용"}
 		// 단어 입력의 경우 : {"type": "talk", "value": "내용", "relay": true}

@@ -44,7 +44,10 @@
 		
 		R = R.toString();
 		for(i=1; arguments[i]; i++) R = R.replace(new RegExp("{V"+i+"}", 'g'), arguments[i]);
-		return R.replace(/FA\{[^\}]+\}/g, _L_Replace);
+		// R = R.replace('FA{', "<i class='fas fa-")
+		// R = R.replace('} ', "></i> ")
+		R = R.replace(/FA\{[^\}]+\}/g, _L_Replace);
+		return R
 	}
 	// fa 아이콘 리플레이스 함수
 	function _L_Replace(seq){ return "<i class='fas fa-"+seq.slice(3, seq.length-1)+"'></i>"; }
@@ -89,6 +92,7 @@ mixin PageHead(min)
 		link(rel='stylesheet', href=(locals.mobile && !locals.as_pc) ? '/css/m_style.css' : '/css/style.css')
 		link(rel='stylesheet', href='/css/expl.css')
 	script(type='text/javascript', src='/js/jquery.js')
+	script(type='text/javascript', src='/js/jquery-ui.min.js')
 	script(type='text/javascript', src='/language/'+locals.page.replace("/", "_")+'/'+locals.lang)
 	
 	if PUBLIC && !SESSION.admin

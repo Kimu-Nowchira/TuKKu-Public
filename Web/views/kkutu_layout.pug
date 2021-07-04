@@ -1,0 +1,69 @@
+//-
+	Rule the words! KKuTu Online
+	Copyright (C) 2017 JJoriping(op@jjo.kr)
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program. If not, see <http://www.gnu.org/licenses/>.
+include module
+
+- if(LANG == undefined) LANG = locals.locale;
+
+doctype html
+html
+	head
+		block Subject
+		meta(charset='utf-8')
+		meta(name='viewport', content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+		script(type='text/javascript').
+			function getObject(v, i) {
+				Object.defineProperty(v, i, {value: v[i], writable: false});
+			}
+			getObject(window.WebSocket, "send");
+			getObject(window.WebSocket, "onmessage");
+			getObject(window, "WebSocket");
+		script(src="https://kit.fontawesome.com/f17c350664.js" crossorigin="anonymous")
+
+		+PageHead()
+			block Preload
+		block CSS
+		block JS
+
+
+	body(style='min-width: 640px;')
+		div#Top
+			+Menu()
+			div#global-notice
+				div#gn-content
+					include ../public/global_notice.html
+				+Expl(L('GLOBAL_NOTICE'))
+			block Top
+
+		div#Jungle
+			span#mobile= locals.mobile
+			span#summonerID= DATA._id
+			img#Background(src='/img/bg/' + (locals.bg || 'def.png'))
+			block Jungle
+
+		div#Intro
+			block Intro
+
+		div#Middle-Body
+			div#Middle
+				div.kkutu-menu
+					include kkutu_menu
+					block kkutu_Menu
+				block Middle
+
+		div#Dialogs(style='position: absolute; width: 100%; height: 100%')
+			include kkutu_dialogs
+			block Dialogs

@@ -77,9 +77,10 @@ process.on('message', function(msg){
 			DIC[msg.target].sendError(msg.code);
 			break;
 		case "room-reserve":
+			// 이미 입장 요청을 했는데 또 하는 경우
 			if(RESERVED[msg.session]){
-				// 이미 입장 요청을 했는데 또 하는 경우
 				break;
+
 			}else RESERVED[msg.session] = {
 				profile: msg.profile,
 				room: msg.room,
@@ -91,8 +92,17 @@ process.on('message', function(msg){
 				}, 10000, msg.session, msg.create)
 			};
 			break;
+		case "create-botroom":
+			console.log('슬레이브에서 봇룸 만들기')
+			$room = new KKuTu.Room(msg.room, msg.room.channel)
+			$room.dictsize = 2
+			ROOM[msg.room.id] = $room
+			ROOM[msg.room.id].addAI(false, msg.ailevel);
 		case "room-invalid":
-			console.log('방폭3==========================\n')
+			if(msg.room.botroom){
+				break;
+			} 
+			console.log('Slave에서 room-invalid로 방폭\n')
 			delete ROOM[msg.room.id];
 			break;
 		default:
@@ -119,6 +129,7 @@ Server.on('connection', function(socket, info){
 		socket.close();
 		return;
 	}
+	// RESERVED에 해당 방 정보가 있는 경우
 	if(room = reserve.room){
 		if(room._create){
 			room._id = room.id;
@@ -127,6 +138,8 @@ Server.on('connection', function(socket, info){
 		clearTimeout(reserve._expiration);
 		delete reserve._expiration;
 		delete RESERVED[key];
+
+	// RESERVED에 해당 방 정보가 없는 경우 오류, 소켓 닫고 취소
 	}else{
 		JLog.warn(`Not reserved from ${key} on @${CHAN}`);
 		socket.close();
@@ -138,15 +151,19 @@ Server.on('connection', function(socket, info){
 		$c = new KKuTu.Client(socket, $body ? $body.profile : null, key);
 		$c.admin = GLOBAL.ADMIN.indexOf($c.id) != -1;
 		
+		// #408 다른 곳에서 해당 계정으로 접속하여 이 곳의 연결이 종료되었습니다.
 		if(DIC[$c.id]){
 			DIC[$c.id].send('error', { code: 408 });
 			DIC[$c.id].socket.close();
 		}
+		
+		// #500 서버 점검 혹은 업데이트가 진행 중입니다.
 		if(DEVELOP && !Const.TESTER.includes($c.id)){
 			$c.send('error', { code: 500 });
 			$c.socket.close();
 			return;
 		}
+
 		$c.refresh().then(function(ref){
 			if(ref.result == 200){
 				DIC[$c.id] = $c;
@@ -155,6 +172,7 @@ Server.on('connection', function(socket, info){
 				console.log('엔터 2============================')
 				console.log(ROOM)
 				$c.enter(room, reserve.spec, reserve.pass);
+				// 유저가 방에 있으면 (유저의 place가 room의 id이면)
 				if($c.place == room.id){
 					$c.publish('connRoom', { user: $c.getData() });
 				}else{ // 입장 실패

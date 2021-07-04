@@ -19,6 +19,7 @@
 var Web		 = require("request");
 var MainDB	 = require("../db");
 var JLog	 = require("../../sub/jjlog");
+var GLOBAL	 = require("../../sub/global.json");
 var Const	 = require("../../const");
 
 function obtain($user, key, value, term, addValue){
@@ -121,15 +122,36 @@ Server.get("/shop", function(req, res){
 });
 
 // POST
-Server.post("/exordial", function(req, res){
-	var text = req.body.data || "";
+Server.post("/profile", function(req, res){
+	var nickname = req.body.nickname;
+	var exordial = req.body.exordial;
 	
 	if(req.session.profile){
-		text = text.slice(0, 100);
-		MainDB.users.update([ '_id', req.session.profile.id ]).set([ 'exordial', text ]).on(function($res){
-			res.send({ text: text });
-		});
-	}else res.send({ error: 400 });
+		if(!Object.is(exordial, undefined)){
+			if(exordial.length > 100) exordial = exordial.slice(0, 100);
+			MainDB.users.update([ '_id', req.session.profile.id ]).set([ 'exordial', exordial ]).on();
+		}
+
+		if(nickname){
+			if(nickname.length > 12) nickname = nickname.slice(0, 12);
+			MainDB.users.findOne([ 'nickname', nickname ]).on(function(data){
+				MainDB.users.findOne([ '_id', req.session.profile.id ]).on(function(requester){
+					var changedDate = new Date(Number(requester.nickChanged));
+					var now = Number(new Date());
+
+					changedDate.setDate(changedDate.getDate() + GLOBAL.NICKNAME_LIMIT.TERM);
+					if(GLOBAL.NICKNAME_LIMIT.TERM > 0 && now < Number(changedDate)) return res.send({ error: 457 });
+					if(data) return res.send({ error: 456 });
+
+					MainDB.users.update([ '_id', req.session.profile.id ]).set([ 'nickname', nickname ], [ 'nickChanged', now ]).on();
+					MainDB.session.update([ '_id', req.session.id ]).set([ 'nickname', nickname ]).on();
+					return res.send({ result: 200 });
+				});
+			});
+		}
+
+		if(!nickname) return res.send({ result: 200 });
+	}else return res.send({ error: 400 });
 });
 Server.post("/buy/:id", function(req, res){
 	if(req.session.profile){

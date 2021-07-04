@@ -1,0 +1,56 @@
+//  상단 메뉴
+
+
+block kkutu_Menu
+    button#HelpBtn.menubtn.tiny-menu.for-lobby.for-master.for-normal.for-gaming.tooltip(style='display: none; background-color: #BBBBBB;')
+        i.fas.fa-question.fa-lg
+        div.tooltiptext 게임 도움말
+    button#SettingBtn.menubtn.tiny-menu.for-lobby.for-master.for-normal.for-gaming.tooltip(style='display: none; background-color: #CCCCCC;')
+        i.fas.fa-wrench.fa-lg
+        div.tooltiptext 게임 설정
+    button#UserListBtn.menubtn.tiny-menu.for-lobby.for-master.for-normal.for-gaming.tooltip(style='display: none; background-color: #CCCCCC;')
+        i.fas.fa-users.fa-lg
+        div.tooltiptext 접속자 목록
+    button#CommunityBtn.menubtn.tiny-menu.for-lobby.for-master.for-normal.for-gaming.tooltip(style='display: none; background-color: #DAA9FF;')
+        i.fas.fa-user-friends.fa-lg
+        div.tooltiptext 친구 목록
+    button#LeaderboardBtn.menubtn.tiny-menu.for-lobby.tooltip(style='display: none; background-color: #FFADD3;')
+        i.fas.fa-trophy.fa-lg
+        div.tooltiptext 레벨 순위
+    button#ReplayBtn.menubtn.tiny-menu.for-lobby.tooltip(style='display: none; background-color: #D9FF82;')
+        i.fas.fa-video.fa-lg
+        div.tooltiptext 게임 다시보기
+    button#ExitBtn.menubtn.for-master.for-normal.for-gaming.tooltip(style='display: none; float: right; background-color: #FFADAD;')
+        i.fas.fa-sign-out-alt.fa-2x
+        div.tooltiptext 방 나가기
+    button#StartBtn.menubtn.for-master.tooltip(style='display: none; float: right; background-color: #a6ee32;')
+        i.fas.fa-play.fa-2x
+        div.tooltiptext 게임 시작하기
+    button#SetRoomBtn.menubtn.for-master.tooltip(style='display: none; float: right;')
+        i.fas.fa-cogs.fa-2x
+        div.tooltiptext 방 설정하기
+    //- button#QuickRoomBtn.menubtn.for-lobby.tooltip(style='display: none; float: right;')
+        i.fas.fa-location-arrow.fa-2x
+        div.tooltiptext 빠른 입장
+    button#ShopBtn.menubtn.for-lobby.tooltip(style='display: none; float: right;')
+        i.fas.fa-shopping-cart.fa-2x
+        div.tooltiptext 상점
+    // button#WordPlusBtn.for-lobby.for-master.for-normal.for-gaming(style='display: none; background-color: #73D07A;')= L('wordPlus')
+    button#InviteBtn.menubtn.for-master.tooltip(style='display: none; float: right;')
+        i.fas.fa-user-plus.fa-2x
+        div.tooltiptext 유저 초대하기
+    button#AddBotBtn.menubtn.for-master.tooltip(style='display: none; float: right;')
+        i.fas.fa-robot.fa-2x
+        div.tooltiptext 봇 추가하기
+    button#SpectateBtn.menubtn.for-master.for-normal.tooltip(style='display: none;')
+        i.fas.fa-binoculars.fa-2x
+        div.tooltiptext 관전하기
+    button#PracticeBtn.menubtn.for-master.for-normal.tooltip(style='display: none; float: left;')= L('practice')
+        div.tooltiptext 연습 게임하기
+    button#ReadyBtn.menubtn.for-normal.tooltip(style='display: none; float: right; background-color: #FFC67F;')
+        i.fas.fa-check.fa-2x
+        div.tooltiptext 준비하기
+    button#DictionaryBtn.menubtn.for-lobby.for-master.for-normal.for-gaming.tooltip(style='display: none; float: right;')
+        div.tooltiptext 트꾸 사전
+        i.fas.fa-book.fa-2x
+    div#facebook-menu.fb-like.for-lobby.for-master.for-normal.for-gaming(data-href='http://kkutu.kr', data-width='300', data-layout='button_count', data-action='like', data-show-faces='true', data-share='true')

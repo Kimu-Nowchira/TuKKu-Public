@@ -74,18 +74,22 @@ function activeResize(){
 }
 
 function showDialog($d, noToggle){
-	// var size = [ $(window).width(), $(window).height() ];
 	
 	if(!noToggle && ($d.css("visibility") == 'visible')){
 		hideDialog($d)
 		return false;
 	}else{
 		// 다이얼로그를 켤 때
+		var size = [ $(window).width(), $(window).height() ];
+		$d.css('left', (size[0] - $d.width()) * 0.5)
+		$d.css('top', (size[1] - $d.height()) * 0.5)
+
 		$(".dialog-front").removeClass("dialog-front");
 		// $d.show().addClass("dialog-front")
 		$d.addClass("dialog-front")
 		$d.addClass("opened");
 		/*
+		// 다이얼로그 위치 조정
 		$d.show().addClass("dialog-front").css({
 			'left': (size[0] - $d.width()) * 0.5,
 			'top': (size[1] - $d.height()) * 0.5
@@ -247,7 +251,6 @@ function checkAge(){
 function onMessage(data){
 	var i;
 	var $target;
-	console.log(data)
     switch (data.type) {
         case 'recaptcha':
             var $introText = $("#intro-text");
@@ -275,7 +278,10 @@ function onMessage(data){
 			$data._playTime = data.playTime;
 			$data._okg = data.okg;
 			$data._gaming = false;
+			$data.nickname = data.nickname;
+			$data.exordial = data.exordial;
 			$data.box = data.box;
+			$data.nickLimit = data.nickLimit;
 			if(data.test) alert(L['welcomeTestServer']);
 			if(location.hash[1]) tryJoin(location.hash.slice(1));
 			updateUI(undefined, true);
@@ -292,12 +298,13 @@ function onMessage(data){
 			updateUserList();
 			break;
 		case 'connRoom':
+			// 빠른 입장으로 들어간 경우
 			if($data._preQuick){
 				playSound('success');
 				hideDialog($stage.dialog.quick);
 				delete $data._preQuick;
 			}
-			hideDialog($stage.dialog.quick);
+			hideDialog($stage.dialog.quick); // 왜 두 번?
 			$data.setUser(data.user.id, data.user);
 			$target = $data.usersR[data.user.id] = data.user;
 			
@@ -353,6 +360,21 @@ function onMessage(data){
 		case 'user':
 			$data.setUser(data.id, data);
 			if($data.room) updateUI($data.room.id == data.place);
+			break;
+		case 'reloadData':
+			break;
+			$data.id = data.id;
+			$data.admin = data.admin;
+			if(!$data._gaming) $data.users = data.users;
+			$data.rooms = data.rooms;
+			$data.friends = data.friends;
+			$data._playTime = data.playTime;
+			$data._okg = data.okg;
+			$data.nickname = data.nickname;
+			$data.exordial = data.exordial;
+			$data.box = data.box;
+			updateUI(undefined, true);
+			updateCommunity();
 			break;
 		case 'friends':
 			$data._friends = {};
@@ -494,9 +516,8 @@ function onMessage(data){
 		case 'error':
 			i = data.message || "";
 			if(data.code == 401){
-				/* 로그인
 				$.cookie('preprev', location.href);
-				location.href = "/login?desc=login_kkutu"; */
+				location.href = "/login?desc=login_kkutu";
 			}else if(data.code == 403){
 				loading();
 			}else if(data.code == 406){
@@ -560,6 +581,7 @@ function welcome(){
 	}, 1000);
 	
 	if($data.admin) console.log("관리자 모드");
+	isWelcome = true;
 }
 function getKickText(profile, vote){
 	var vv = L['agree'] + " " + vote.Y + ", " + L['disagree'] + " " + vote.N + L['kickCon'];
@@ -690,10 +712,12 @@ function processRoom(data){
 	data.myRoom = ($data.place == data.room.id) || (data.target == $data.id);
 	if(data.myRoom){
 		$target = $data.users[data.target];
+		// 추방일 경우
 		if(data.kickVote){
 			notice(getKickText($target.profile, data.kickVote));
 			if($target.id == data.id) alert(L['hasKicked']);
 		}
+		// room의 players에 자신이 없을 경우 로비로 돌아감
 		if(data.room.players.indexOf($data.id) == -1){
 			if($data.room) if($data.room.gaming){
 				stopAllSounds();
@@ -721,6 +745,7 @@ function processRoom(data){
 				delete $data._room;
 			}
 		}else{
+			// 연습일 경우
 			if(data.room.practice && !$data.practicing){
 				$data.practicing = true;
 				$data._room = $data.room;
@@ -728,6 +753,7 @@ function processRoom(data){
 				$data.__master = $data.master;
 				$data.__players = $data._players;
 			}
+			// 방 정보 불러 옴
 			if($data.room){
 				$data._players = $data.room.players.toString();
 				$data._master = $data.room.master;
@@ -821,13 +847,14 @@ function updateUI(myRoom, refresh){
 	$stage.box.roomList.hide();
 	$stage.box.shop.hide();
 	$stage.box.dictionary.hide();
-	$(".rooms-create-hover").hide();
 	if(only == "for-lobby"){
 		$data._ar_first = true;
 		$stage.box.userList.show();
 		if($data._shop){
+			$stage.menu.dict.removeClass("toggled");
 			$stage.box.shop.show();
 		}else if($data._dict){
+			$stage.menu.shop.removeClass("toggled");
 			$stage.box.dictionary.show();
 		}else{
 			$(".rooms-create-hover").show();
@@ -849,6 +876,7 @@ function updateUI(myRoom, refresh){
 			$stage.menu.ready.removeClass("toggled");
 			$(".team-selector").removeClass("team-unable");
 			$("#team-" + $data.users[$data.id].game.team).addClass("team-chosen");
+			if($data.room.botroom) return $stage.menu.ready.trigger('click');
 			if($data.opts.ar && $data._ar_first){
 				$stage.menu.ready.addClass("toggled");
 				$stage.menu.ready.trigger('click');
@@ -921,7 +949,15 @@ function checkRoom(modify){
 	}
 	if($data._master != $data.room.master){
 		u = $data.users[$data.room.master];
-		notice((u.profile.title || u.profile.name) + L['hasMaster']);
+		if($data.room.botroom){
+			for(i in $data.robots){
+				bm = $data.robots[i];
+				break;
+			}
+			notice((bm.profile.title || bm.profile.name) + L['hasAppeared']);
+		}else{
+			notice((u.profile.title || u.profile.name) + L['hasMaster']);
+		}
 	}
 	$data._players = $data.room.players.toString();
 	$data._master = $data.room.master;
@@ -1075,16 +1111,18 @@ function roomListBar(o){
 	if(o.botroom){
 		$R.addClass("bot-room");
 		if(o.battery > 3){
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-full'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-full'></i>")
 		}else if(o.battery == 3){
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-three-quarters'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-three-quarters'></i>")
 		}else if(o.battery == 2){
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-half'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-half'></i>")
 		}else if(o.battery == 1){
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-quarter'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-quarter'></i>")
 		}else{
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-empty'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-empty'></i>")
 		}
+		$batt.append($("<div>").addClass("tooltiptext").html("<h4>현재 몬스터 체력</h4><h3>" + o.battery + " / 4</h3>"))
+		$R.append($batt)
 	}else{ o.battery > 7
 		$R.append($("<div>").addClass("rooms-lock").html(o.password ? "<i class='fas fa-lock'></i>" : "<i class='fas fa-unlock'></i>"))
 	}
@@ -1169,7 +1207,7 @@ function updateRoom(gaming){
 	}else{
 		$r = $(".room-users").empty();
 		spec = $data.users[$data.id].game.form == "S";
-		// 참가자
+		// 참가자들마다 보이게 만들기
 		for(i in $data.room.players){
 			o = $data.users[$data.room.players[i]] || $data.room.players[i];
 			if(!o.game) continue;
@@ -1196,6 +1234,18 @@ function updateRoom(gaming){
 			);
 			renderMoremi($m, o.equip);
 			if(spec) $z.hide();
+			/*
+			if(o.robot){
+				$r.append(
+					$("<button>").addClass('delete-bot').append(
+						$("<i>").addClass('fas').addClass('fa-minus-square').addClass('for-master')
+					).attr('id', "bor-delet-"+o.id).on('click', function(e){
+						$data._profiled = $(e.currentTarget).attr('id').slice(10);
+						send('kick', { robot: $data.robots.hasOwnProperty($data._profiled), target: $data._profiled });
+					})
+				)
+			}
+			*/
 			if(o.id == $data.room.master){
 				$y.addClass("room-user-master").html(L['master'] + prac + (spec || ''));
 			}else if(spec){
@@ -1222,16 +1272,16 @@ function updateRoom(gaming){
 	// 유저 수에 따라 자연스럽게 창 크기 조정
 	if($data.room.players.length < 4){
 		$(".room-user").width(224)
-		$(".room-user").css('zoom', 1.3)
+		$(".room-user").css('zoom', 1.25)
 	}else if($data.room.players.length < 7){
 		$(".room-user").width(300)
-		$(".room-user").css('zoom', 1)
+		$(".room-user").css('zoom', 0.95)
 	}else if($data.room.players.length < 9){
 		$(".room-user").width(224)
-		$(".room-user").css('zoom', 1)
+		$(".room-user").css('zoom', 0.95)
 	}else if($data.room.players.length < 11){
 		$(".room-user").width(224)
-		$(".room-user").css('zoom', 0.8)
+		$(".room-user").css('zoom', 0.75)
 	}else{
 		$(".room-user").width(224)
 		$(".room-user").css('zoom', 0.5)
@@ -1332,6 +1382,7 @@ function drawMyDress(avGroup){
 	renderMoremi($view, my.equip);
 	$(".dress-type.selected").removeClass("selected");
 	$("#dress-type-all").addClass("selected");
+	$("#dress-nickname").val(my.nickname);
 	$("#dress-exordial").val(my.exordial);
 	drawMyGoods(avGroup || true);
 }
@@ -1363,7 +1414,7 @@ function renderGoods($target, preId, filter, equip, onClick){
 		};
 		if(!q.hasOwnProperty("value") && !equipped) continue;
 		if(!isAll) if(filter.indexOf(obj.group) == -1) continue;
-		$target.append($item = $("<div>").addClass("dress-item")
+		$target.append($item = $("<div>").addClass("dress-item").addClass("tooltip")
 			.append(getImage(obj.image).addClass("dress-item-image").html("x" + q.value))
 			.append(explainGoods(obj, equipped, q.expire))
 		);
@@ -1821,7 +1872,7 @@ function replayReady(){
 	$stage.box.userList.hide();
 	$stage.box.roomList.hide();
 	$stage.box.game.show();
-	$stage.dialog.replay.hide();
+	hideDialog($stage.dialog.replay)
 	gameReady();
 	updateRoom(true);
 	$data.$gp = $(".GameBox .product-title").empty()
@@ -2002,8 +2053,8 @@ function clearBoard(){
 	loading();
 	$stage.game.here.hide();
 	hideDialog($stage.dialog.result)
-	$stage.dialog.dress.hide();
-	$stage.dialog.charFactory.hide();
+	hideDialog($stage.dialog.dress)
+	hideDialog($stage.dialog.charFactory)
 	$(".jjoriping,.rounds,.game-body").removeClass("cw");
 	$stage.game.display.empty();
 	$stage.game.chain.hide();
@@ -2211,6 +2262,7 @@ function roundEnd(result, data){
 		}, 500);
 	}, 2000);
 	stopRecord();
+	if($data.room.botroom) send('leave');
 }
 function drawRanking(ranks){
 	var $b = $(".result-board").empty();
@@ -2273,7 +2325,7 @@ function loadShop(){
 			if(item.cost < 0) return;
 			var url = iImage(false, item);
 			
-			$body.append($("<div>").attr('id', "goods_" + item._id).addClass("goods")
+			$body.append($("<div>").attr('id', "goods_" + item._id).addClass("goods").addClass("tooltip")
 				.append($("<div>").addClass("jt-image goods-image").css('background-image', "url(" + url + ")"))
 				.append($("<div>").addClass("goods-title").html(iName(item._id)))
 				.append($("<div>").addClass("goods-cost").html(commify(item.cost) + L['ping']))
@@ -2301,7 +2353,7 @@ function filterShop(by){
 }
 function explainGoods(item, equipped, expire){
 	var i;
-	var $R = $("<div>").addClass("expl dress-expl")
+	var $R = $("<div>").addClass("tooltiptext dress-expl")
 		.append($("<div>").addClass("dress-item-title").html(iName(item._id) + (equipped ? L['equipped'] : "")))
 		.append($("<div>").addClass("dress-item-group").html(L['GROUP_' + item.group]))
 		.append($("<div>").addClass("dress-item-expl").html(iDesc(item._id)));
@@ -2375,6 +2427,7 @@ function vibrate(level){
 		addTimeout(vibrate, 50, level * 0.7);
 	}, 50);
 }
+// 단어를 화면에 보여주는 부분(뚠 뚠 뚠뚠 뚠))
 function pushDisplay(text, mean, theme, wc){
 	var len;
 	var mode = MODE[$data.room.mode];
@@ -2399,10 +2452,14 @@ function pushDisplay(text, mean, theme, wc){
 	}
 	kkt = 'K'+$data._speed;
 	
+	// 박자 정복 있다면
 	if(beat){
+		// 박자마다
+		var index = 0;
 		for(i in beat){
-			if(beat[i] == "0") continue;
-			
+			if(beat[i] == "0") continue;  // 쉼표면 패스
+
+			// 텍스트(한 글자)
 			$stage.game.display.append($l = $("<div>")
 				.addClass("display-text")
 				.css({ 'float': isRev ? "right" : "left", 'margin-top': -6, 'font-size': 36 })
@@ -2411,13 +2468,23 @@ function pushDisplay(text, mean, theme, wc){
 			);
 			j++;
 			addTimeout(function($l, snd){
+				index += 1;
 				var anim = { 'margin-top': 0 };
-				
+				console.log(text.length)
+				console.log(j)
 				playSound(snd);
 				if($l.html() == $data.mission){
 					playSound('mission');
 					$l.css({ 'color': "#66FF66" });
 					anim['font-size'] = 24;
+				}else if($data.wordtype == 'attack' && text.length == index){
+					playSound('attack');
+					$l.css({ 'color': "#FF5A5A" });
+					anim['font-size'] = 28;
+				}else if($data.is_defence && index == 1){
+					playSound('defence');
+					$l.css({ 'color': "#5B5AFF" });
+					anim['font-size'] = 28;
 				}else{
 					anim['font-size'] = 20;
 				}
@@ -2829,7 +2896,6 @@ function tryJoin(id){
 	if(!$data.rooms[id]) return;
 	if($data.rooms[id].botroom && !$data.rooms[id].gaming){
 		if (!confirm("몬스터 룸에 입장하시겠습니까?")) return;
-		return send('into-botroom', { id: id, password: pw });
 	}
 	if($data.rooms[id].password){
 		pw = prompt(L['putPassword']);

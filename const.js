@@ -1,21 +1,3 @@
-/**
- * Rule the words! KKuTu Online
- * Copyright (C) 2017 JJoriping(op@jjo.kr)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
 var GLOBAL = require("./sub/global.json");
 
 exports.KKUTU_MAX = 100; // 서버 당 인원 제한
@@ -33,6 +15,7 @@ exports.TESTER = GLOBAL.ADMIN.concat([
 	"Input tester id here"
 ]);
 exports.IS_SECURED = GLOBAL.IS_SECURED;
+exports.HTTPS_PROXIED = GLOBAL.HTTPS_PROXIED;
 exports.SSL_OPTIONS = GLOBAL.SSL_OPTIONS;
 
 // 특수 규칙
@@ -42,6 +25,7 @@ exports.OPTIONS = {
 	'man': { name: "Manner" },
 	'mis': { name: "Mission" },
 	'misp': { name: "Missionplus" },
+	'tmis' : { name: "ThemeMission" },
 	'prv': { name: "Proverb" },
 	'k32': { name: "Sami" },
 	'no2': { name: "No2" }
@@ -116,7 +100,7 @@ exports.RULE = {
 	// 한국어 끝말잇기
 	'KSH': { lang: "ko",
 		rule: "Classic",
-		opts: [ "man", "ext", "mis", "misp", "ext1", "ext2" ],
+		opts: [ "man", "ext", "mis", "misp", "tmis", "ext1", "ext2" ],
 		// opts: [ "man", "ext", "ext2", "mis", "loa", "str", "misp" ],
 		time: 1,
 		ai: true,
@@ -238,7 +222,8 @@ exports.MISSIONPLUS_ko = [
 	"나", "낙", "난", "남", "납", "낭", "내",
 	"노", "농", "뇌", "누",
 	"다", "단", "담", "답", "당", "대", "덕", "덩", "도", "독", "동", "두", "둔", "등",
-	"마", "만", "망", "매", "맹", "면", "멸"
+	"마", "만", "망", "매", "맹", "면", "멸", "명", "모", "목", "몰", "몽", "묘", "무", "묵", "문", "물", "미", "민", "밀",
+	"바", "박", "반", "발", "방", "배"
 ];
 exports.MISSION_en = [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z" ];
 
@@ -251,23 +236,28 @@ exports.KO_INJEONG = [
 	"MOV",  // 영화
 	"BUS",  // 버스 정류장
 	"COP",  // 기업
-	"DSG",  // 도서관
+	// "DSG",  // 도서관
 	"MHU",  // 문화유적
 	"PAK",  // 공원
-	"FIS"  // 물고기
+	"FIS",  // 물고기
+	"HAN",  // 한자
+	"HANC",  // 자음퀴즈용 한자 주제
+	"JQW",  // 자음퀴즈
+	"SGS"  // 사자성어
 ];
 // 매우 넓은 사전 주제 1
 exports.KO_CHOINJEONG  = [
 	"TVP",  // TV 프로그램
 	"GAM",  // 게임
 	"LNV",  // 라이트 노벨
-	"MAN",  // 만화
+	"MNG",  // 만화
 	"ANI",  // 애니메이션
 	"WBT",  // 웹툰
 	"SIG",  // 음악+
 	"PSN",  // 인명+
 	"STR",  // 인터넷 방송인
 	"MTR",  // 철도역
+	"WMT",  // 세계 철도역
 	"PRO"  // 프로그래밍
 ];
 // 매우 넓은 사전 주제 2 (개별 작품 주제)
@@ -278,9 +268,11 @@ exports.KO_CHOINJEONG2 = [
 	"TOU",  // 동방 프로젝트
 	"COK",  // 쿠키런
 	"KAN",  // 함대 콜렉션
-	"DIG",  // 디지몬
+	// "DIG",  // 디지몬
 	"MAR",  // 마리오 시리즈
-	"KAB"  // 별의 커비
+	"MNC",  // 마인크래프트
+	"MNM",  // 마인크래프트 모드
+	// "KAB"  // 별의 커비
 ];
 exports.EN_INJEONG = [
 ];
@@ -293,6 +285,11 @@ exports.KO_THEME = [
 	"공업", "수의", "보건 일반", "식품", "복지", "가톨릭", "산업 일반", "매체", "재료", "예체능 일반",
 	"해양", "기독교", "수산업", "연기", "무용", "철학", "지리", "천연자원", "인문 일반", "고유명 일반"
 ];
+exports.KO_THEMEMISSION = [
+	"화학", "동물", "식물", "언어", "수학", "지명",
+	"GMN", "ANI", "PSN", "MTR",
+	"FOD", "ROD", "SCH", "MOV", "COP"
+]
 exports.EN_THEME = [
 	"e05", "e08", "e12", "e13", "e15",
 	"e18", "e20", "e43"

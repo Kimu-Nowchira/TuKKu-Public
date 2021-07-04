@@ -138,12 +138,9 @@
 
 		 // 미션 특수규칙일 경우 미션 글자를 지정
 		 if(my.opts.mission) my.game.mission = getMission(my.rule.lang);
-		 
-		 // 미션+ 특수규칙일 경우 미션 글자를 지정
-		 if(my.opts.missionplus){
-			 my.game.mission = getMissionplus();
-			 console.log("미션 단어 : " + my.game.mission);
-			};
+		 if(my.opts.missionplus) my.game.mission = getMissionplus()
+	     if(my.opts.thememission) my.game.mission = getThemeMission();
+
 		 if(my.opts.sami) my.game.wordLength = 2;
 		 
 		 my.byMaster('roundReady', {
@@ -256,30 +253,32 @@
 				 my.game.late = true;
 				 clearTimeout(my.game.turnTimer);
 				 t = tv - my.game.turnAt;
-				 score = my.getScore(text, t);
+				 score = my.getScore(text, t, $doc.theme);
 				 my.game.dic[text] = (my.game.dic[text] || 0) + 1;
 				 my.game.chain.push(text);
 				 my.game.roundTime -= t;
 				 my.game.char = preChar;
 				 my.game.subChar = preSubChar;
+				 var wordtype = undefined
+				 if($doc.relay < 150){wordtype = 'attack'}
 				 client.game.score += score;
 				 client.publish('turnEnd', {
 					 ok: true,
 					 value: text,
+					 wordtype: wordtype,
 					 mean: $doc.mean,
 					 theme: $doc.theme,
 					 wc: $doc.type,
 					 score: score,
-					 bonus: (my.game.mission === true) ? score - my.getScore(text, t, true) : 0,
+					 bonus: (my.game.mission === true) ? score - my.getScore(text, t) : 0,
 					 baby: $doc.baby
 				 }, true);
 				 if(my.game.mission === true){
-					 console.log(my.opts.mission);
-					 console.log(my.opts.missionplus);
-					 if(my.opts.missionplus){
+					 if(my.opts.thememission){
+						my.game.mission = getThemeMission();
+					 }else if(my.opts.missionplus){
 						my.game.mission = getMissionplus();
-					 }
-					 else{
+					 }else{
 						my.game.mission = getMission(my.rule.lang);
 					 }
 				 }
@@ -291,6 +290,7 @@
 			 }
 			 my.game.feedback = false
 			 // 두방 단어 또는 금지 단어인지 확인
+			 /*
 			 if(my.opts.manner && (DUBANG_LETTERS.indexOf(preChar) != -1)){getAuto.call(my, preChar, preSubChar, 1).then(function(w){
 				client.publish('turnError', { code: 411, value: text }, true);
 				my.game.feedback = true
@@ -298,9 +298,12 @@
 				return;
 			 })
 			};
+			*/
 			 // 매너 확인
 			if(firstMove || my.opts.manner){getAuto.call(my, preChar, preSubChar, 1).then(function(w){
-				 if(w) approved();
+				 if(w){
+					 approved();
+				 }
 				 else{
 					 my.game.loading = false;
 					 // 402 : 첫 턴 한방단어 금지
@@ -350,20 +353,34 @@
 		 (l == "ko") ? [ 'type', Const.KOR_GROUP ] : [ '_id', Const.ENG_ID ]
 	 ).on(onDB);
  };
- exports.getScore = function(text, delay, ignoreMission){
-	 var my = this;
-	 var tr = 1 - delay / my.game.turnTime;
-	 var score, arr;
-	 
-	 if(!text || !my.game.chain || !my.game.dic) return 0;
-	 score = Const.getPreScore(text, my.game.chain, tr);
-	 
-	 if(my.game.dic[text]) score *= 15 / (my.game.dic[text] + 15);
-	 if(!ignoreMission) if(arr = text.match(new RegExp(my.game.mission, "g"))){
-		 score += score * 0.5 * arr.length;
-		 my.game.mission = true;
-	 }
-	 return Math.round(score);
+ exports.getScore = function(text, delay, theme){
+	var my = this;
+	var tr = 1 - delay / my.game.turnTime;
+	var score, arr;
+	var ignoreMission = !theme
+	
+	if(!text || !my.game.chain || !my.game.dic) return 0;
+	score = Const.getPreScore(text, my.game.chain, tr);
+	
+	if(my.game.dic[text]) score *= 15 / (my.game.dic[text] + 15);
+	if(ignoreMission) return Math.round(score);
+
+	if(my.opts.thememission){
+		// 테마 미션인 경우
+		if(theme.indexOf(my.game.mission) != -1){
+			score += score * 2;
+			my.game.mission = true;
+		}
+	}else if(arr = text.match(new RegExp(my.game.mission, "g"))){
+		// 일반 미션인 경우
+		if(my.opts.missionplus){
+			score += score * arr.length;
+		}else{
+			score += score * 0.5 * arr.length;
+		}
+		my.game.mission = true;
+	}
+	return Math.round(score);
  };
  
  // 끝말잇기 봇 생각 알고리즘
@@ -388,7 +405,7 @@
 			// 장문 트꾸 봇의 정렬 기준
 			}else if(level == 6){
 				return b._id.length - a._id.length;
-			}else{
+			}else if(level == 7){
 				var bplus = 0
 				var aplus = 0
 				if(b._id.charAt(b._id.length - 1) == "역") bplus += 100;
@@ -398,6 +415,16 @@
 				if(b._id.charAt(b._id.length - 1) == "녁") bplus += 50;
 				if(a._id.charAt(a._id.length - 1) == "녁") aplus += 50;
 				return (bplus + b._id.length) - (aplus + a._id.length);
+			}else if(level == 8){
+				var bplus = 0
+				var aplus = 0
+				console.log(a.theme)
+				if(a.theme.indexOf('POK') != -1) aplus += 100
+				if(b.theme.indexOf('POK') != -1) bplus += 100
+				return (bplus + b._id.length) - (aplus + a._id.length);
+			}else{
+				console.log('데이터에 없는 봇 사용')
+				return b._id.length - a._id.length;
 			}
 		};
 
@@ -515,6 +542,14 @@
  // ★ 미션 플러스 글자를 뽑아주는 함수
  function getMissionplus(){
 	 var arr = Const.MISSIONPLUS_ko;
+	 
+	 if(!arr) return "-";
+	 return arr[Math.floor(Math.random() * arr.length)];
+ }
+
+ // ★ 미션 플러스 글자를 뽑아주는 함수
+ function getThemeMission(){
+	 var arr = Const.KO_THEMEMISSION;
 	 
 	 if(!arr) return "-";
 	 return arr[Math.floor(Math.random() * arr.length)];

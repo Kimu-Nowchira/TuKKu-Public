@@ -97,12 +97,11 @@ Server.use((req, res, next) => {
 		next();
 	}
 });
-//볕뉘 수정 끝
-/* use this if you want
 
+/*
 DDDoS = new DDDoS({
 	maxWeight: 6,
-	checkInterval: 10000,
+	checkInterval: 20000,
 	rules: [{
 		regexp: "^/(cf|dict|gwalli)",
 		maxWeight: 20,
@@ -115,7 +114,8 @@ DDDoS = new DDDoS({
 DDDoS.rules[0].logFunction = DDDoS.rules[1].logFunction = function(ip, path){
 	JLog.warn(`DoS from IP ${ip} on ${path}`);
 };
-Server.use(DDDoS.express());*/
+Server.use(DDDoS.express());
+*/
 
 WebInit.init(Server, true);
 DB.ready = function(){
@@ -154,12 +154,13 @@ DB.ready = function(){
 Const.MAIN_PORTS.forEach(function(v, i){
 	var KEY = process.env['WS_KEY'];
 	var protocol;
-	if(Const.IS_SECURED) {
+	if(Const.IS_SECURED || Const.HTTPS_PROXIED) {
 		protocol = 'wss';
 	} else {
 		protocol = 'ws';
 	}
 	gameServers[i] = new GameClient(KEY, `${protocol}://${GLOBAL.GAME_SERVER_HOST}:${v}/${KEY}`);
+	// gameServers[i] = new GameClient(KEY, GLOBAL.WS_URL ? GLOBAL.WS_URL.replace('{protocol}', protocol).replace('{port}', v).replace('{key}', KEY) : `${protocol}://${GLOBAL.GAME_SERVER_HOST}:${v}/${KEY}`);
 });
 function GameClient(id, url){
 	var my = this;
@@ -234,7 +235,7 @@ Server.get("/", function(req, res){
 			'_id': id,
 			'PORT': Const.MAIN_PORTS[server],
 			'HOST': req.hostname,
-			'PROTOCOL': Const.IS_SECURED ? 'wss' : 'ws',
+			'PROTOCOL': Const.IS_SECURED || Const.HTTPS_PROXIED ? 'wss' : 'ws',
 			'TEST': req.query.test,
 			'MOREMI_PART': Const.MOREMI_PART,
 			'AVAIL_EQUIP': Const.AVAIL_EQUIP,
@@ -243,6 +244,7 @@ Server.get("/", function(req, res){
 			'MODE': Const.GAME_TYPE,
 			'RULE': Const.RULE,
 			'OPTIONS': Const.OPTIONS,
+			'NICKNAME_LIMIT': GLOBAL.NICKNAME_LIMIT,
 			'KO_INJEONG': Const.KO_INJEONG,
 			'KO_CHOINJEONG': Const.KO_CHOINJEONG,
 			'KO_CHOINJEONG2': Const.KO_CHOINJEONG2,
@@ -253,7 +255,8 @@ Server.get("/", function(req, res){
 			'ogImage': "http://kkutu.kr/img/kkutu/logo.png",
 			'ogURL': "http://kkutu.kr/",
 			'ogTitle': "끝말잇기의 끝, 트꾸!",
-			'ogDescription': "끄투에서 한 걸음 더 가면 트꾸!"
+			'ogDescription': "끄투에서 한 걸음 더 가면 트꾸!",
+			// '_ws': GLOBAL.WS_URL.replace('{protocol}', Const.IS_SECURED || Const.HTTPS_PROXIED ? 'wss' : 'ws').replace('{port}', Const.MAIN_PORTS[server]).replace('{key}', id)
 		});
 	}
 });

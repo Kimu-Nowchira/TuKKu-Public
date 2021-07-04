@@ -22,7 +22,7 @@ mixin Dialog(id, w, h, t, nocls)
 			div.dialog-title(style=`width: ${w - 20}px;`)!= t || ''
 		div.dialog-body(style='font-size: 13px;')
 			block
-	
+
 mixin GameOption(key, prefix)
 	- var name = locals.OPTIONS[key].name;
 	- var sid = name.toLowerCase();

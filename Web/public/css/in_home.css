@@ -31,7 +31,7 @@ html, body {
     border: none;
     text-align: center;
     background-color: rgb(42, 42, 42);
-    border-radius: 50px;
+    /* border-radius: 50px; */
     box-shadow: 0 0 10px 0 #141414;
 }
 #main-image{
@@ -42,9 +42,12 @@ html, body {
     width: 40px;
     transition: all 300ms ease;
 }
+#accounts{
+    margin-bottom: 10px;
+}
 .main-button{
     display: inline-block;
-    width: 270px;
+    width: 290px;
     height: 40px;
     margin-top: 9px;
     margin-bottom: 15px;
@@ -52,7 +55,7 @@ html, body {
     cursor: pointer;
     border: none;
     transition: all 300ms ease;
-    border-radius: 40px;
+    border-radius: 0px;
     font-size: 20px;
     box-shadow: 0 0 10px 0 #141414;
 }
@@ -70,8 +73,16 @@ html, body {
         background-color: #FFBB44;
     }
     #discord-login{
+        margin: 5px;
         margin-top: 10px;
         background-color: #5865F2;
+        width: 135px;
+    }
+    #naver-login{
+        margin: 5px;
+        margin-top: 10px;
+        background-color: #1DC800;
+        width: 135px;
     }
 #play-guest{
     cursor: pointer;
@@ -81,4 +92,9 @@ html, body {
 #play-guest:hover{
     font-weight: bold;
     font-size: 14pt;
+}
+.tooltip .tooltiptext {
+    font-size: 12px;
+    width: 240px;
+	margin-left: -120px;
 }

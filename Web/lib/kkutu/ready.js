@@ -1,25 +1,10 @@
-/**
- * Rule the words! KKuTu Online
- * Copyright (C) 2017 JJoriping(op@jjo.kr)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
-$(document).ready(function(){
+$(function(){
 	var i;
 	$data.PUBLIC = $("#PUBLIC").html() == "true";
 	$data.URL = $("#URL").html();
+	$data.NICKNAME_LIMIT = JSON.parse($("#NICKNAME_LIMIT").text());
+	$data.NICKNAME_LIMIT.REGEX.unshift(null);
+	$data.NICKNAME_LIMIT.REGEX = new (Function.prototype.bind.apply(RegExp, $data.NICKNAME_LIMIT.REGEX));
 	$data.version = $("#version").html();
 	$data.server = location.href.match(/\?.*server=(\d+)/)[1];
 	$data.shop = {};
@@ -37,6 +22,8 @@ $(document).ready(function(){
 	}
 	EXP[MAX_LEVEL - 1] = Infinity;
 	EXP.push(Infinity);
+
+	// 컨트롤 정리
 	$stage = {
 		loading: $("#Loading"),
 		lobby: {
@@ -61,6 +48,7 @@ $(document).ready(function(){
 			spectate: $("#SpectateBtn"),
 			shop: $("#ShopBtn"),
 			dict: $("#DictionaryBtn"),
+			userList: $("#UserListBtn"),
 			wordPlus: $("#WordPlusBtn"),
 			invite: $("#InviteBtn"),
 			practice: $("#PracticeBtn"),
@@ -78,6 +66,7 @@ $(document).ready(function(){
 			community: $("#CommunityDiag"),
 				commFriends: $("#comm-friends"),
 				commFriendAdd: $("#comm-friend-add"),
+			userList: $("#UserListDiag"),
 			room: $("#RoomDiag"),
 				roomOK: $("#room-ok"),
 			quick: $("#QuickDiag"),
@@ -158,11 +147,13 @@ $(document).ready(function(){
 		yell: $("#Yell").hide(),
 		balloons: $("#Balloons")
 	};
+	// 웹소켓이 지원되지 않는 브라우저일 경우
 	if(_WebSocket == undefined){
 		loading(L['websocketUnsupport']);
 		alert(L['websocketUnsupport']);
 		return;
 	}
+	// 음악 파일 불러옴
 	$data._soundList = [
 		{ key: "k", value: "/media/kkutu/k.mp3" },
 		{ key: "lobby", value: "/media/kkutu/LobbyBGM.mp3" },
@@ -179,17 +170,20 @@ $(document).ready(function(){
 		{ key: "mission", value: "/media/kkutu/mission.mp3" },
 		{ key: "kung", value: "/media/kkutu/kung.mp3" },
 		{ key: "horr", value: "/media/kkutu/horr.mp3" },
+		{ key: "defence", value: "/media/kkutu/defence.mp3" },
+		{ key: "attack", value: "/media/kkutu/attack.mp3" },
 	];
 	for(i=0; i<=10; i++) $data._soundList.push(
 		{ key: "T"+i, value: "/media/kkutu/T"+i+".mp3" },
 		{ key: "K"+i, value: "/media/kkutu/K"+i+".mp3" },
 		{ key: "As"+i, value: "/media/kkutu/As"+i+".mp3" }
 	);
-	activeResize();
 	loadSounds($data._soundList, function(){
 		processShop(connect);
 	});
 	delete $data._soundList;
+	activeResize();  // 반응형 화면 조정
+	$( ".dialog" ).draggable();
 	
 	MOREMI_PART = $("#MOREMI_PART").html().split(',');
 	AVAIL_EQUIP = $("#AVAIL_EQUIP").html().split(',');
@@ -247,11 +241,7 @@ $(document).ready(function(){
 		}
 	};
 
-// 객체 설정
-	/*addTimeout(function(){
-		$("#intro-start").hide();
-		$("#intro").show();
-	}, 1400);*/
+	// 붙여넣기 막기
 	$(document).on('paste', function(e){
 		if($data.room) if($data.room.gaming){
 			e.preventDefault();
@@ -271,19 +261,6 @@ $(document).ready(function(){
 		opts.ev = $("#effect-volume").val();
 		applyOptions(opts);
 	}
-	// 창 이동 함수
-	/*
-	$(".dialog-head .dialog-title").on('mousedown', function(e){
-		var $pd = $(e.currentTarget).parents(".dialog");
-		
-		$(".dialog-front").removeClass("dialog-front");
-		$pd.addClass("dialog-front");
-		startDrag($pd, e.pageX, e.pageY);
-	}).on('mouseup', function(e){
-		stopDrag();
-	});
-	*/
-	// addInterval(checkInput, 1);
 	$stage.chatBtn.on('click', function(e){
 		checkInput();
 		
@@ -326,6 +303,7 @@ $(document).ready(function(){
 	$("#room-limit").on('change', function(e){
 		var $target = $(e.currentTarget);
 		var value = $target.val();
+		$("#room-limit-text").text(value + '명');
 		
 		if(value < 2 || value > 8){
 			$target.css('color', "#FF4444");
@@ -336,11 +314,24 @@ $(document).ready(function(){
 	$("#room-round").on('change', function(e){
 		var $target = $(e.currentTarget);
 		var value = $target.val();
+		$("#room-round-text").text(value + '라운드');
 		
 		if(value < 1 || value > 10){
 			$target.css('color', "#FF4444");
 		}else{
 			$target.css('color', "");
+		}
+	});
+	$("#lock-room").on('click', function(e){
+		$cur = $(e.currentTarget)
+		if($cur.hasClass('selected')){
+			$cur.html("<i class='fas fa-lock-open' aria-hidden='true'></i>")
+			$cur.removeClass('selected')
+			$('#password_box').hide()
+		}else{
+			$cur.html("<i class='fas fa-lock' aria-hidden='true'></i>")
+			$cur.addClass('selected')
+			$('#password_box').show()
 		}
 	});
 	$stage.game.here.on('click', function(e){
@@ -408,13 +399,14 @@ $(document).ready(function(){
 	// 셋룸
 	$stage.menu.setRoom.on('click', function(e){
 		var $d;
+		$data.room.mode = 3
 		var rule = RULE[MODE[$data.room.mode]];
 		var i, k;
 		
 		$data.typeRoom = 'setRoom';
 		$("#room-title").val($data.room.title);
 		$("#room-limit").val($data.room.limit);
-		$("#room-mode").val($data.room.mode).trigger('change');
+		// $("#GameSelect").children('.selected').val($data.room.mode).trigger('click');
 		$("#room-round").val($data.room.round);
 		$("#room-time").val($data.room.time / rule.time);
 		for(i in OPTIONS){
@@ -514,26 +506,6 @@ $(document).ready(function(){
 			}
 		}
 	});
-	// 게임 유형을 바꾸었을 때의 이벤트
-	$("#room-mode").on('change', function(e){
-		var v = $("#room-mode").val();
-		var rule = RULE[MODE[v]];
-		$("#game-mode-expl").html(L['modex' + v]);
-
-		updateGameOptions(rule.opts, 'room');
-		
-		$data._injpick = [];
-		// 주제 선택이 필요한 게임 유형일 경우 주제 선택 버튼 활성화
-		if(rule.opts.indexOf("ijp") != -1) $("#room-injpick-panel").show();
-		else $("#room-injpick-panel").hide();
-		// 사전 설정이 필요한 게임 유형일 경우 사전 설정 버튼 활성화
-		if(rule.opts.indexOf("ext") != -1) $("#select-dict-size").show();
-		else $("#select-dict-size").hide();
-		if(rule.rule == "Typing") $("#room-round").val(3);
-		$("#room-time").children("option").each(function(i, o){
-			$(o).html(Number($(o).val()) * rule.time + L['SECOND']);
-		});
-	}).trigger('change');
 	$stage.menu.spectate.on('click', function(e){
 		var mode = $stage.menu.spectate.hasClass("toggled");
 		
@@ -577,6 +549,9 @@ $(document).ready(function(){
 	});
 	$stage.menu.wordPlus.on('click', function(e){
 		showDialog($stage.dialog.wordPlus);
+	});
+	$stage.menu.userList.on('click', function(e){
+		showDialog($stage.dialog.userList);
 	});
 	$stage.menu.invite.on('click', function(e){
 		showDialog($stage.dialog.invite);
@@ -691,7 +666,7 @@ $(document).ready(function(){
 			title: $("#room-title").val().trim() || $("#room-title").attr('placeholder').trim(),
 			password: $("#room-pw").val(),
 			limit: $("#room-limit").val(),
-			mode: $("#room-mode").val(),
+			mode: $("#GameSelect").children('.selected').val(),
 			round: $("#room-round").val(),
 			time: $("#room-time").val(),
 			dictsize: $("#dict-size").val(),
@@ -794,6 +769,9 @@ $(document).ready(function(){
 		$(e.currentTarget).addClass("searching").html("<i class='fa fa-spin fa-spinner'></i>");
 		send('wp', { value: t });
 	}).hotkey($("#wp-input"), 13);
+	$("#AddBotBtn").on('click', function(e){
+		requestInvite("AI");
+	});
 	$stage.dialog.inviteRobot.on('click', function(e){
 		requestInvite("AI");
 	});
@@ -834,13 +812,28 @@ $(document).ready(function(){
 		});
 	});
 	$stage.dialog.dressOK.on('click', function(e){
+		var data = {};
+
 		$(e.currentTarget).attr('disabled', true);
-		$.post("/exordial", { data: $("#dress-exordial").val() }, function(res){
-			$stage.dialog.dressOK.attr('disabled', false);
-			if(res.error) return fail(res.error);
-			
-			hideDialog($stage.dialog.dress)
-		});
+		if($("#dress-nickname").val() !== $data.nickname) data.nickname = $("#dress-nickname").val();
+		if($("#dress-exordial").val() !== $data.exordial) data.exordial = $("#dress-exordial").val();
+
+		if(data.nickname || !Object.is(data.exordial, undefined)){
+			if(data.nickname && $data.NICKNAME_LIMIT.REGEX.test(data.nickname)) data.nickname = confirm("닉네임 정책에 어긋나는 문자(열)이 포함되어 있습니다.\n닉네임 정책에 어긋나는 부분을 제거하고 변경할까요?") ? data.nickname.replace($data.NICKNAME_LIMIT.REGEX, "") : undefined;
+			if(data.nickname ? confirm($data.NICKNAME_LIMIT.TERM > 0 ? L.sureChangeNickLimit1 + $data.NICKNAME_LIMIT.TERM + L.sureChangeNickLimit2 : L.sureChangeNickNoLimit) : !Object.is(data.exordial, undefined)) $.post("/profile", data, function(res){
+				if(res.error) return fail(res.error);
+				if(data.nickname){
+					$data.users[$data.id].nickname = $data.nickname = data.nickname;
+					$("#account-info").text(data.nickname);
+				}
+				if(!Object.is(data.exordial, undefined)) $data.users[$data.id].exordial = $data.exordial = data.exordial;
+
+				send("bulkRefresh");
+				alert(data.nickname ? (!Object.is(data.exordial, undefined) ? L.nickChanged + $data.nickname + L.changed + " " + L.exorChanged + $data.exordial + L.changed : L.nickChanged + $data.nickname + L.changed) : L.exorChanged + $data.exordial + L.changed);
+			});
+		}
+		$stage.dialog.dressOK.attr("disabled", false);
+		hideDialog($stage.dialog.dress)
 	});
 	$("#DressDiag .dress-type").on('click', function(e){
 		var $target = $(e.currentTarget);
@@ -874,9 +867,51 @@ $(document).ready(function(){
 			drawCharFactory();
 		});
 	});
+	// 게임 유형을 바꾸었을 때의 이벤트
+	$('#GameSelect > button').on("click", function(e){
+		$('#GameSelect').children('button').removeClass('selected')
+		$(e.currentTarget).addClass('selected')
+
+		var v = $("#GameSelect").children('.selected').val();
+		console.log(v)
+		var rule = RULE[MODE[v]];
+		$("#game-mode-expl").html(L['modex' + v]);
+
+		updateGameOptions(rule.opts, 'room');
+		
+		$data._injpick = [];
+		// 주제 선택이 필요한 게임 유형일 경우 주제 선택 버튼 활성화
+		if(rule.opts.indexOf("ijp") != -1){
+			$("#room-injpick-panel").show();
+		} else $("#room-injpick-panel").hide();
+
+		// 사전 설정이 필요한 게임 유형일 경우 사전 설정 버튼 활성화
+		if(rule.opts.indexOf("ext") != -1){ 
+			$("#select-dict-size").show();
+		} else $("#select-dict-size").hide();
+
+		if(rule.rule == "Typing") $("#room-round").val(3);
+		$("#room-time").children("option").each(function(i, o){
+			$(o).html(Number($(o).val()) * rule.time + L['SECOND']);
+		});
+	}).trigger('click');
+	$('.pick-all').on("click", function(e){
+		$('.dict_' + $(e.currentTarget).attr('id').replace('-pick-all', '')).prop("checked", true);
+	});
+	$('.pick-no').on("click", function(e){
+		$('.dict_' + $(e.currentTarget).attr('id').replace('-pick-no', '')).prop("checked", false);
+	});
+	$('#search_theme').on("change keyup", function(e){
+		if($(e.currentTarget).val() == ''){
+			$("#injpick-list").find("label").parent().show();
+			return;
+		}
+		$("#injpick-list").find("label").parent().hide();
+		$("#injpick-list").find("label:contains('" + $(e.currentTarget).val() + "')").parent().show();
+	});
 	// 주제 선택 창을 열었을 때
 	$("#room-injeong-pick").on('click', function(e){
-		var rule = RULE[MODE[$("#room-mode").val()]];
+		var rule = RULE[MODE[$("#GameSelect").children('.selected').val()]];
 		var i;
 		// 한영에 따라 주제 목록을 다르게 보여줌
 		$("#injpick-list>div").show();
@@ -950,7 +985,8 @@ $(document).ready(function(){
 		
 		send('team', { value: $(e.currentTarget).attr('id').slice(5) });
 	}
-// 리플레이
+
+	// 리플레이
 	function initReplayDialog(){
 		$stage.dialog.replayView.attr('disabled', true);
 	}
@@ -1038,6 +1074,7 @@ $(document).ready(function(){
 		};
 		ws.onerror = function(e){
 			console.warn(L['error'], e);
+			isWelcome = false;
 		};
 	}
 });

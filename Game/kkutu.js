@@ -47,7 +47,8 @@ exports.init = function(_DB, _DIC, _ROOM, _GUEST_PERMISSION, _CHAN){
 	GUEST_PERMISSION = _GUEST_PERMISSION;
 	CHAN = _CHAN;
 	_rid = 100;
-	if(Cluster.isMaster) setInterval(exports.make_bot_room, 6000);
+	BOTROOM_INTERVER = 300
+	// if(Cluster.isMaster) setInterval(exports.make_bot_room, 1000 * BOTROOM_INTERVER);
 	// 망할 셧다운제 if(Cluster.isMaster) setInterval(exports.processAjae, 60000);
 	DB.kkutu_shop.find().on(function($shop){
 		SHOP = {};
@@ -63,38 +64,57 @@ exports.init = function(_DB, _DIC, _ROOM, _GUEST_PERMISSION, _CHAN){
 		Rule[k].init(DB, DIC);
 	}
 };
+// 일정 간격으로 작동하는 봇룸 제작 함수
 exports.make_bot_room = function(){
 	var random_num = function(num){
 		return Math.floor(Math.random() * num);
 	}
+	var random_pick = function(arr){
+		return arr[random_num(arr.length)]
+	}
 	var RANDOMALPHA = [
-		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'K', 'L', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'X', 'Y', 'Z'
+		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'S' // 'H', 'K', 'L', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'X', 'Y', 'Z'
 	]
+	var ALPHA_TO_LEVEL = {
+		'F': 0, 'E': 1, 'D': 2, 'C': 3, 'B': 4, 'A': 6, 'S': 5, 'G': 7
+	}
+	var TITLE_NAMES = {
+		"F": ["끝말잇기 처음 해 봐요 ㅠㅠ", "처음 왔는데 이거 어떻게 해요?"],
+		"E": ["뉴비가 타고 있어요", "살살해 주세요!", "초보방"],
+		"D": ["자신 있는 사람 커몬", "끄투 10일차"],
+		"C": ["ㄱㄱ", "ㄹㄷ"],
+		"B": ["끝말잇기 처음 해 봐요 ㅠㅠ", "끄투 초보 도와주세요ㅠ"],
+		"A": ["장문 자신 있습니다", "장문 장인방"],
+		"S": ["1:1 ㄱㄱ", "1:1 스택전 ㄱㄱ"],
+		"G": ["속보) 7호선 석남 연장", "동북선 경전철 언제 완성되냐", "김포 골드라인 미어터진다!!!"],
+	}
 	var num_botroom = 0;
 	for(i in ROOM){
 		if(ROOM[i].botroom){
 			num_botroom += 1;
 		}
 	}
-	if(num_botroom > 5) return;
-	alphab = RANDOMALPHA[random_num(RANDOMALPHA.length)]
+	if(num_botroom > 10) return;
+	var alphab = random_pick(RANDOMALPHA)
 	var randid = ('0' + random_num(100)).slice(-2)
 	var ranmode = 3 // random_num(5)
 	var vchannel = getFreeChannel()
 	var vroomdt = {
-		id: alphab + randid, channel: vchannel, title: '몬스터의 방', password: false, limit: 2,
-		mode: ranmode, round: 5, time: 60, master: null, dictsize: '1', players: [],
+		id: alphab + randid, channel: vchannel, title: random_pick(TITLE_NAMES[alphab]), password: false, limit: 2,
+		mode: ranmode, round: 1, time: 60, master: null, dictsize: '1', players: [],
 		readies: {}, gaming: false, game: { seq: [] }, practice: false,
-		opts: { strict: false, loanword: false, manner: false, mission: false, missionplus: false, proverb: false, sami: false, no2: false, injpick: [] },
+		opts: {
+			strict: false, loanword: false, manner: true, mission: false,
+			missionplus: false, thememission: true, proverb: false,
+			sami: false, no2: false, injpick: []
+		},
 		botroom: true, battery: 4
 	}
 	vroom = new exports.Room(vroomdt, vchannel)
-	vroom.addAI()
+	vroom.dictsize = 2
 	ROOM[vroom.id] = vroom;
+	CHAN[vchannel].send({ type: 'create-botroom', room: vroom, ailevel: ALPHA_TO_LEVEL[alphab] })
 	console.log('매 10초에 실행');
-	for(i in DIC){
-		// DIC[i].chat('와아 조아아 >ㅅ<')
-	}
 }
 /* 망할 셧다운제
 exports.processAjae = function(){
@@ -159,6 +179,11 @@ exports.Robot = function(target, place, level){
 	my.place = place;
 	my.target = target;
 	my.equip = { robot: true };
+	my.profile = {
+		id: my.id,
+		title: '어쩌고 트꾸 봇',
+		image: GUEST_IMAGE
+	};
 
 	// 봇 데이터 반환 함수
 	my.getData = function(){
@@ -284,6 +309,7 @@ exports.Client = function(socket, profile, sid){
 			image: GUEST_IMAGE
 		};
 	}
+	my.nickname = null;
 	my.socket = socket;
 	my.place = 0;
 	my.team = 0;
@@ -330,7 +356,7 @@ exports.Client = function(socket, profile, sid){
 		if(!my) return;
 		if(!msg) return;
 		
-		JLog.log(`Chan @${channel} Msg #${my.id}: ${msg}`);
+		if(JSON.parse(msg).type != 'reloadData') JLog.log(`Chan @${channel} Msg #${my.id}: ${msg}`);
 		try{ data = JSON.parse(msg); }catch(e){ data = { error: 400 }; }
 		if(Cluster.isWorker) process.send({ type: "tail-report", id: my.id, chan: channel, place: my.place, msg: data.error ? msg : data });
 		
@@ -368,6 +394,7 @@ exports.Client = function(socket, profile, sid){
 			o.data = my.data;
 			o.money = my.money;
 			o.equip = my.equip;
+			o.nickname = my.nickname;
 			o.exordial = my.exordial;
 		}
 		return o;
@@ -457,10 +484,12 @@ exports.Client = function(socket, profile, sid){
 			
 			R.go({ result: 200 });
 		}else DB.users.findOne([ '_id', my.id ]).on(function($user){
-			var first = !$user;
+			var first = !$user;  // first는 유저가 처음 들어온 것에 대한 값 (DB에 정보 유무)
 			var black = first ? "" : $user.black;
 			
-			if(first) $user = { money: 0 };
+			// 처음 들어왔으면
+			if(first) $user = { nickname: my.profile.title || my.profile.name, money: 0 };
+
 			if(black == "null") black = false;
 			if(black == "chat"){
 				black = false;
@@ -481,14 +510,21 @@ exports.Client = function(socket, profile, sid){
 					}
 				}
 			}*/
+			my.nickname = $user.nickname;
 			my.exordial = $user.exordial || "";
+			if (my.nickname) my.profile.title = my.nickname;
 			my.equip = $user.equip || {};
 			my.box = $user.box || {};
 			my.data = new exports.Data($user.kkutu);
 			my.money = Number($user.money);
 			my.friends = $user.friends || {};
-			if(first) my.flush();
-			else{
+			if(first){
+				my.flush();
+				DB.users.update([ '_id', my.id ]).set([ 'nickname', my.nickname || "별명 미지정" ]).on(function($body){
+					if(!my.nickname) JLog.warn(`OAuth로부터 별명을 받아오지 못한 유저가 있습니다. #${my.id}`);
+					DB.session.update([ '_id', sid ]).set([ 'nickname', my.nickname || "별명 미지정" ]).on();
+				});
+			}else{
 				my.checkExpire();
 				my.okgCount = Math.floor((my.data.playTime || 0) / PER_OKG);
 			}
@@ -534,15 +570,25 @@ exports.Client = function(socket, profile, sid){
 	};
 	my.enter = function(room, spec, pass){
 		console.log('(enter) 방 정보 ===================================\n')
-		console.log(room)
+		// console.log(room)
 		var $room, i;
+
+		// 이미 유저가 특정 방에 소속된 경우 (로비는 0이므로 false 처리됨)
 		if(my.place){
 			my.send('roomStuck');
 			JLog.warn(`Enter the room ${room.id} in the place ${my.place} by ${my.id}!`);
 			return;
+
+		// room.id가 존재한다면
 		}else if(room.id){
+			/* ========================================================
+			======================== 방에 들어가기 =======================
+			======================================================== */
+
 			// 이미 있는 방에 들어가기... 여기서 유효성을 검사한다.
 			$room = ROOM[room.id];
+
+			// $room이 undifined인 경우 #430 : 존재하지 않는 방
 			if(!$room){
 				console.log('430: 존재하지 않는 방')
 				if(Cluster.isMaster){
@@ -552,48 +598,63 @@ exports.Client = function(socket, profile, sid){
 				}
 				return my.sendError(430, room.id);
 			}
-			if($room.botroom) return my.sendError(456, room.id);
+			// botroom인 경우 #456 (임시) : 몬스터 룸에 대한 잘못된 접근
+			// if($room.botroom) return my.sendError(456, room.id);
+
+			// 관전 요청이 아닌 경우 
 			if(!spec){
+				// 이미 게임 중인 방인데 관전 요청이 아닌 참여 요청을 보낼 경우 #416 : 관전하시겠습니까?
 				if($room.gaming){
 					return my.send('error', { code: 416, target: $room.id });
+
+				// 게스트는 게임 참여가 불가능하게 권한 설정한 경우 #401 : 손님 계정은 게임 관전만 가능합니다.
 				}else if(my.guest) if(!GUEST_PERMISSION.enter){
 					return my.sendError(401);
 				}
 			}
+			// 방이 이미 다 찬 경우 #429 : 해당 방이 꽉 찼습니다.
 			if($room.players.length >= $room.limit + (spec ? Const.MAX_OBSERVER : 0)){
 				return my.sendError(429);
 			}
+			// 입장 요청인데 이미 방에 존재하는 경우 #409 : 해당 계정은 이미 접속 중에 있습니다.
 			if($room.players.indexOf(my.id) != -1){
 				return my.sendError(409);
 			}
+			// 클러스터가 마스터인 경우 (이해 못함)
 			if(Cluster.isMaster){
 				console.log('프리룸 제작')
+				// preRoom(로딩 표시 및 웹소켓 생성을 클라이언트에 요청)
 				my.send('preRoom', { id: $room.id, pw: room.password, channel: $room.channel });
+				// 해당 방이 있는 채널에 'room-reserve'를 보냄
 				CHAN[$room.channel].send({ type: "room-reserve", session: sid, room: room, spec: spec, pass: pass });
 				
 				$room = undefined;
 			}else{
 				if(!pass && $room){
+					// 방에서 추방당한 목록에 있는 경우 #406
 					if($room.kicked.indexOf(my.id) != -1){
 						return my.sendError(406);
 					}
+					// 비밀번호를 틀린 경우 #403
 					if($room.password != room.password && $room.password){
 						$room = undefined;
 						return my.sendError(403);
 					}
 				}
 			}
+
+		// room.id가 존재하지 않는데, 게스트 게임 참여가 불가능하게 권한을 설정한 경우 #401 : 손님 계정은 게임 관전만 가능합니다.
 		}else if(my.guest && !GUEST_PERMISSION.enter){
 			my.sendError(401);
+
+		// room.id가 존재하지 않는 경우 (새로운 방 만들기)
 		}else{
+			/* ========================================================
+			======================== 새 방 만들기 =======================
+			======================================================== */
 			// 새 방 만들어 들어가기
-			/*
-				1. 마스터가 ID와 채널을 클라이언트로 보낸다.
-				2. 클라이언트가 그 채널 일꾼으로 접속한다.
-				3. 일꾼이 만든다.
-				4. 일꾼이 만들었다고 마스터에게 알린다.
-				5. 마스터가 방 정보를 반영한다.
-			*/
+
+			
 			if(Cluster.isMaster){
 				var av = getFreeChannel();
 				
@@ -616,11 +677,15 @@ exports.Client = function(socket, profile, sid){
 				$room = new exports.Room(room, getFreeChannel());
 				
 				process.send({ type: "room-new", target: my.id, room: $room.getData() });
+				// 방을 추가하는 부분
+				console.log('새로운 방 생성!')
 				ROOM[$room.id] = $room;
 				spec = false;
 			}
 		}
 		if($room){
+			console.log('89743892567843852463574689526789543264785239464378546325743')
+			// console.log($room)
 			if(spec) $room.spectate(my, room.password);
 			else $room.come(my, room.password, pass);
 		}
@@ -707,6 +772,10 @@ exports.Client = function(socket, profile, sid){
 		
 		my.ready = !my.ready;
 		my.publish('user', my.getData());
+		if($room.botroom){
+			$room.master = my.id
+			return $room.ready();
+		}
 	};
 	my.start = function(){
 		var $room = ROOM[my.place];
@@ -716,39 +785,6 @@ exports.Client = function(socket, profile, sid){
 		if($room.players.length < 2) return my.sendError(411);
 		
 		$room.ready();
-	};
-	my.bot_battle = function(id){
-		return;
-		console.log(id)
-		var $room = ROOM[id];
-		var ud;
-		var pr;
-		console.log('봇룸 입장!!!!')
-
-		if(!$room) return;
-		// if(my.subPlace) return;
-		// if(my.form != "J") return;
-		console.log('봇룸 입장222!!!!')
-		
-		my.team = 0;
-		my.ready = true;
-		// my.place = $room.id
-		ud = my.getData();
-		// ud.game.practice = my.pracRoom.id;
-		// my.publish('user', ud);
-		$room.myroom = true
-		$room.dictsize = 2
-		$room.master = my.id
-		// $room.export()
-		// my.pracRoom.practice = true;
-		// my.subPlace = my.pracRoom.id;
-		// my.send("preRoom", {id: $room.id, channel: $room.channel });
-		my.send("room", {target: $room.id, room: $room });
-		$room.come(my);
-		// my.send("room-come", {target: my.id, id: $room.id });
-		console.log($room)
-		// $room.start();
-		// $room.game.hum = 1;
 	};
 	my.practice = function(level){
 		var $room = ROOM[my.place];
@@ -933,7 +969,7 @@ exports.Room = function(room, channel){
 		};
 	};
 	// 'AI 초대' 버튼을 눌렀을 때 처리 함수
-	my.addAI = function(caller){
+	my.addAI = function(caller, level){
 		if(my.players.length >= my.limit){
 			return caller.sendError(429);
 		}
@@ -943,7 +979,8 @@ exports.Room = function(room, channel){
 		if(!my.rule.ai){
 			return caller.sendError(415);
 		}
-		my.players.push(new exports.Robot(null, my.id, 6)); // 기본 AI 레벨 설정 포함
+		if(level === undefined) level = 6
+		my.players.push(new exports.Robot(null, my.id, level)); // 기본 AI 레벨 설정 포함
 		my.export();
 	};
 	// AI 설정 함수
@@ -987,14 +1024,14 @@ exports.Room = function(room, channel){
 		if(my.players.push(client.id) == 1){
 			my.master = client.id;
 		}
-		console.log('테스트트트트트트')
+		console.log('my.come 발생\n')
 		if(Cluster.isWorker){
 			client.ready = false;
 			client.team = 0;
 			client.cameWhenGaming = false;
 			client.form = "J";
 			
-			console.log('커몬커몬')
+			console.log('my.come - Cluster.isWorker 발생\n')
 			if(!my.practice) process.send({ type: "room-come", target: client.id, id: my.id });
 			my.export(client.id);
 		}
@@ -1004,7 +1041,6 @@ exports.Room = function(room, channel){
 		var len = my.players.push(client.id);
 		
 		if(Cluster.isWorker){
-			console.log('클러스터 일한다아')
 			client.ready = false;
 			client.team = 0;
 			client.cameWhenGaming = true;
@@ -1029,8 +1065,9 @@ exports.Room = function(room, channel){
 		}
 		my.players.splice(x, 1);
 		client.game = {};
+		// 나가는 사람이 방장인 경우
 		if(client.id == my.master){
-			while(my.removeAI(false, true));
+			if(!my.botroom) while(my.removeAI(false, true));
 			my.master = my.players[0];
 		}
 		if(DIC[my.master]){
@@ -1064,8 +1101,10 @@ exports.Room = function(room, channel){
 				my.gaming = false;
 				my.game = {};
 			}
-			console.log('방폭2========================')
-			delete ROOM[my.id];
+			if(!my.botroom || my.battery === 0){
+				console.log('방폭2========================')
+				delete ROOM[my.id];
+			}
 		}
 		if(my.practice){
 			clearTimeout(my.game.turnTimer);
@@ -1146,6 +1185,8 @@ exports.Room = function(room, channel){
 		}
 		return false;
 	};
+	// 방장의 시작 버튼 == 방장의 준비 버튼
+	// 모두가 준비하면 곧바로 게임 시작
 	my.ready = function(){
 		var i, all = true;
 		var len = 0;
@@ -1169,7 +1210,7 @@ exports.Room = function(room, channel){
 				break;
 			}
 		}
-		if(!DIC[my.master]) return;
+		if(!DIC[my.master] && !my.botroom) return;
 		if(len < 2) return DIC[my.master].sendError(411);
 		if(i = my.preReady(teams)) return DIC[my.master].sendError(i);
 		if(all){
@@ -1253,6 +1294,7 @@ exports.Room = function(room, channel){
 		clearTimeout(my.game.hintTimer2);
 		clearTimeout(my.game.qTimer);
 	};
+	// 게임 종료
 	my.roundEnd = function(data){
 		var i, o, rw;
 		var res = [];
@@ -1262,8 +1304,10 @@ exports.Room = function(room, channel){
 		var suv = [];
 		var teams = [ null, [], [], [], [] ];
 		var sumScore = 0;
-		var now = (new Date()).getTime();	
+		var now = (new Date()).getTime();
 		
+		if(my.botroom) my.battery -= 1
+
 		my.interrupt();
 		for(i in my.players){
 			o = DIC[my.players[i]];

@@ -48,33 +48,19 @@ var $data = {};
 var $lib = { Classic: {}, Jaqwi: {}, Crossword: {}, Typing: {}, Hunmin: {}, Daneo: {}, Sock: {} };
 var $rec;
 var mobile;
+var isWelcome = false;
 
 var audioContext = window.hasOwnProperty("AudioContext") ? (new AudioContext()) : false;
 var _WebSocket = window['WebSocket'];
 var _setInterval = setInterval;
 var _setTimeout = setTimeout;
-/**
- * Rule the words! KKuTu Online
- * Copyright (C) 2017 JJoriping(op@jjo.kr)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
-$(document).ready(function(){
+$(function(){
 	var i;
 	$data.PUBLIC = $("#PUBLIC").html() == "true";
 	$data.URL = $("#URL").html();
+	$data.NICKNAME_LIMIT = JSON.parse($("#NICKNAME_LIMIT").text());
+	$data.NICKNAME_LIMIT.REGEX.unshift(null);
+	$data.NICKNAME_LIMIT.REGEX = new (Function.prototype.bind.apply(RegExp, $data.NICKNAME_LIMIT.REGEX));
 	$data.version = $("#version").html();
 	$data.server = location.href.match(/\?.*server=(\d+)/)[1];
 	$data.shop = {};
@@ -92,6 +78,8 @@ $(document).ready(function(){
 	}
 	EXP[MAX_LEVEL - 1] = Infinity;
 	EXP.push(Infinity);
+
+	// 컨트롤 정리
 	$stage = {
 		loading: $("#Loading"),
 		lobby: {
@@ -116,6 +104,7 @@ $(document).ready(function(){
 			spectate: $("#SpectateBtn"),
 			shop: $("#ShopBtn"),
 			dict: $("#DictionaryBtn"),
+			userList: $("#UserListBtn"),
 			wordPlus: $("#WordPlusBtn"),
 			invite: $("#InviteBtn"),
 			practice: $("#PracticeBtn"),
@@ -133,6 +122,7 @@ $(document).ready(function(){
 			community: $("#CommunityDiag"),
 				commFriends: $("#comm-friends"),
 				commFriendAdd: $("#comm-friend-add"),
+			userList: $("#UserListDiag"),
 			room: $("#RoomDiag"),
 				roomOK: $("#room-ok"),
 			quick: $("#QuickDiag"),
@@ -213,11 +203,13 @@ $(document).ready(function(){
 		yell: $("#Yell").hide(),
 		balloons: $("#Balloons")
 	};
+	// 웹소켓이 지원되지 않는 브라우저일 경우
 	if(_WebSocket == undefined){
 		loading(L['websocketUnsupport']);
 		alert(L['websocketUnsupport']);
 		return;
 	}
+	// 음악 파일 불러옴
 	$data._soundList = [
 		{ key: "k", value: "/media/kkutu/k.mp3" },
 		{ key: "lobby", value: "/media/kkutu/LobbyBGM.mp3" },
@@ -234,17 +226,20 @@ $(document).ready(function(){
 		{ key: "mission", value: "/media/kkutu/mission.mp3" },
 		{ key: "kung", value: "/media/kkutu/kung.mp3" },
 		{ key: "horr", value: "/media/kkutu/horr.mp3" },
+		{ key: "defence", value: "/media/kkutu/defence.mp3" },
+		{ key: "attack", value: "/media/kkutu/attack.mp3" },
 	];
 	for(i=0; i<=10; i++) $data._soundList.push(
 		{ key: "T"+i, value: "/media/kkutu/T"+i+".mp3" },
 		{ key: "K"+i, value: "/media/kkutu/K"+i+".mp3" },
 		{ key: "As"+i, value: "/media/kkutu/As"+i+".mp3" }
 	);
-	activeResize();
 	loadSounds($data._soundList, function(){
 		processShop(connect);
 	});
 	delete $data._soundList;
+	activeResize();  // 반응형 화면 조정
+	$( ".dialog" ).draggable();
 	
 	MOREMI_PART = $("#MOREMI_PART").html().split(',');
 	AVAIL_EQUIP = $("#AVAIL_EQUIP").html().split(',');
@@ -302,11 +297,7 @@ $(document).ready(function(){
 		}
 	};
 
-// 객체 설정
-	/*addTimeout(function(){
-		$("#intro-start").hide();
-		$("#intro").show();
-	}, 1400);*/
+	// 붙여넣기 막기
 	$(document).on('paste', function(e){
 		if($data.room) if($data.room.gaming){
 			e.preventDefault();
@@ -326,19 +317,6 @@ $(document).ready(function(){
 		opts.ev = $("#effect-volume").val();
 		applyOptions(opts);
 	}
-	// 창 이동 함수
-	/*
-	$(".dialog-head .dialog-title").on('mousedown', function(e){
-		var $pd = $(e.currentTarget).parents(".dialog");
-		
-		$(".dialog-front").removeClass("dialog-front");
-		$pd.addClass("dialog-front");
-		startDrag($pd, e.pageX, e.pageY);
-	}).on('mouseup', function(e){
-		stopDrag();
-	});
-	*/
-	// addInterval(checkInput, 1);
 	$stage.chatBtn.on('click', function(e){
 		checkInput();
 		
@@ -381,6 +359,7 @@ $(document).ready(function(){
 	$("#room-limit").on('change', function(e){
 		var $target = $(e.currentTarget);
 		var value = $target.val();
+		$("#room-limit-text").text(value + '명');
 		
 		if(value < 2 || value > 8){
 			$target.css('color', "#FF4444");
@@ -391,11 +370,24 @@ $(document).ready(function(){
 	$("#room-round").on('change', function(e){
 		var $target = $(e.currentTarget);
 		var value = $target.val();
+		$("#room-round-text").text(value + '라운드');
 		
 		if(value < 1 || value > 10){
 			$target.css('color', "#FF4444");
 		}else{
 			$target.css('color', "");
+		}
+	});
+	$("#lock-room").on('click', function(e){
+		$cur = $(e.currentTarget)
+		if($cur.hasClass('selected')){
+			$cur.html("<i class='fas fa-lock-open' aria-hidden='true'></i>")
+			$cur.removeClass('selected')
+			$('#password_box').hide()
+		}else{
+			$cur.html("<i class='fas fa-lock' aria-hidden='true'></i>")
+			$cur.addClass('selected')
+			$('#password_box').show()
 		}
 	});
 	$stage.game.here.on('click', function(e){
@@ -463,13 +455,14 @@ $(document).ready(function(){
 	// 셋룸
 	$stage.menu.setRoom.on('click', function(e){
 		var $d;
+		$data.room.mode = 3
 		var rule = RULE[MODE[$data.room.mode]];
 		var i, k;
 		
 		$data.typeRoom = 'setRoom';
 		$("#room-title").val($data.room.title);
 		$("#room-limit").val($data.room.limit);
-		$("#room-mode").val($data.room.mode).trigger('change');
+		// $("#GameSelect").children('.selected').val($data.room.mode).trigger('click');
 		$("#room-round").val($data.room.round);
 		$("#room-time").val($data.room.time / rule.time);
 		for(i in OPTIONS){
@@ -569,26 +562,6 @@ $(document).ready(function(){
 			}
 		}
 	});
-	// 게임 유형을 바꾸었을 때의 이벤트
-	$("#room-mode").on('change', function(e){
-		var v = $("#room-mode").val();
-		var rule = RULE[MODE[v]];
-		$("#game-mode-expl").html(L['modex' + v]);
-
-		updateGameOptions(rule.opts, 'room');
-		
-		$data._injpick = [];
-		// 주제 선택이 필요한 게임 유형일 경우 주제 선택 버튼 활성화
-		if(rule.opts.indexOf("ijp") != -1) $("#room-injpick-panel").show();
-		else $("#room-injpick-panel").hide();
-		// 사전 설정이 필요한 게임 유형일 경우 사전 설정 버튼 활성화
-		if(rule.opts.indexOf("ext") != -1) $("#select-dict-size").show();
-		else $("#select-dict-size").hide();
-		if(rule.rule == "Typing") $("#room-round").val(3);
-		$("#room-time").children("option").each(function(i, o){
-			$(o).html(Number($(o).val()) * rule.time + L['SECOND']);
-		});
-	}).trigger('change');
 	$stage.menu.spectate.on('click', function(e){
 		var mode = $stage.menu.spectate.hasClass("toggled");
 		
@@ -632,6 +605,9 @@ $(document).ready(function(){
 	});
 	$stage.menu.wordPlus.on('click', function(e){
 		showDialog($stage.dialog.wordPlus);
+	});
+	$stage.menu.userList.on('click', function(e){
+		showDialog($stage.dialog.userList);
 	});
 	$stage.menu.invite.on('click', function(e){
 		showDialog($stage.dialog.invite);
@@ -746,7 +722,7 @@ $(document).ready(function(){
 			title: $("#room-title").val().trim() || $("#room-title").attr('placeholder').trim(),
 			password: $("#room-pw").val(),
 			limit: $("#room-limit").val(),
-			mode: $("#room-mode").val(),
+			mode: $("#GameSelect").children('.selected').val(),
 			round: $("#room-round").val(),
 			time: $("#room-time").val(),
 			dictsize: $("#dict-size").val(),
@@ -849,6 +825,9 @@ $(document).ready(function(){
 		$(e.currentTarget).addClass("searching").html("<i class='fa fa-spin fa-spinner'></i>");
 		send('wp', { value: t });
 	}).hotkey($("#wp-input"), 13);
+	$("#AddBotBtn").on('click', function(e){
+		requestInvite("AI");
+	});
 	$stage.dialog.inviteRobot.on('click', function(e){
 		requestInvite("AI");
 	});
@@ -889,13 +868,28 @@ $(document).ready(function(){
 		});
 	});
 	$stage.dialog.dressOK.on('click', function(e){
+		var data = {};
+
 		$(e.currentTarget).attr('disabled', true);
-		$.post("/exordial", { data: $("#dress-exordial").val() }, function(res){
-			$stage.dialog.dressOK.attr('disabled', false);
-			if(res.error) return fail(res.error);
-			
-			hideDialog($stage.dialog.dress)
-		});
+		if($("#dress-nickname").val() !== $data.nickname) data.nickname = $("#dress-nickname").val();
+		if($("#dress-exordial").val() !== $data.exordial) data.exordial = $("#dress-exordial").val();
+
+		if(data.nickname || !Object.is(data.exordial, undefined)){
+			if(data.nickname && $data.NICKNAME_LIMIT.REGEX.test(data.nickname)) data.nickname = confirm("닉네임 정책에 어긋나는 문자(열)이 포함되어 있습니다.\n닉네임 정책에 어긋나는 부분을 제거하고 변경할까요?") ? data.nickname.replace($data.NICKNAME_LIMIT.REGEX, "") : undefined;
+			if(data.nickname ? confirm($data.NICKNAME_LIMIT.TERM > 0 ? L.sureChangeNickLimit1 + $data.NICKNAME_LIMIT.TERM + L.sureChangeNickLimit2 : L.sureChangeNickNoLimit) : !Object.is(data.exordial, undefined)) $.post("/profile", data, function(res){
+				if(res.error) return fail(res.error);
+				if(data.nickname){
+					$data.users[$data.id].nickname = $data.nickname = data.nickname;
+					$("#account-info").text(data.nickname);
+				}
+				if(!Object.is(data.exordial, undefined)) $data.users[$data.id].exordial = $data.exordial = data.exordial;
+
+				send("bulkRefresh");
+				alert(data.nickname ? (!Object.is(data.exordial, undefined) ? L.nickChanged + $data.nickname + L.changed + " " + L.exorChanged + $data.exordial + L.changed : L.nickChanged + $data.nickname + L.changed) : L.exorChanged + $data.exordial + L.changed);
+			});
+		}
+		$stage.dialog.dressOK.attr("disabled", false);
+		hideDialog($stage.dialog.dress)
 	});
 	$("#DressDiag .dress-type").on('click', function(e){
 		var $target = $(e.currentTarget);
@@ -929,9 +923,50 @@ $(document).ready(function(){
 			drawCharFactory();
 		});
 	});
+	// 게임 유형을 바꾸었을 때의 이벤트
+	$('#GameSelect > button').on("click", function(e){
+		$('#GameSelect').children('button').removeClass('selected')
+		$(e.currentTarget).addClass('selected')
+
+		var v = $("#GameSelect").children('.selected').val();
+		var rule = RULE[MODE[v]];
+		$("#game-mode-expl").html(L['modex' + v]);
+
+		updateGameOptions(rule.opts, 'room');
+		
+		$data._injpick = [];
+		// 주제 선택이 필요한 게임 유형일 경우 주제 선택 버튼 활성화
+		if(rule.opts.indexOf("ijp") != -1){
+			$("#room-injpick-panel").show();
+		} else $("#room-injpick-panel").hide();
+
+		// 사전 설정이 필요한 게임 유형일 경우 사전 설정 버튼 활성화
+		if(rule.opts.indexOf("ext") != -1){ 
+			$("#select-dict-size").show();
+		} else $("#select-dict-size").hide();
+
+		if(rule.rule == "Typing") $("#room-round").val(3);
+		$("#room-time").children("option").each(function(i, o){
+			$(o).html(Number($(o).val()) * rule.time + L['SECOND']);
+		});
+	}).trigger('click');
+	$('.pick-all').on("click", function(e){
+		$('.dict_' + $(e.currentTarget).attr('id').replace('-pick-all', '')).prop("checked", true);
+	});
+	$('.pick-no').on("click", function(e){
+		$('.dict_' + $(e.currentTarget).attr('id').replace('-pick-no', '')).prop("checked", false);
+	});
+	$('#search_theme').on("change keyup", function(e){
+		if($(e.currentTarget).val() == ''){
+			$("#injpick-list").find("label").parent().show();
+			return;
+		}
+		$("#injpick-list").find("label").parent().hide();
+		$("#injpick-list").find("label:contains('" + $(e.currentTarget).val() + "')").parent().show();
+	});
 	// 주제 선택 창을 열었을 때
 	$("#room-injeong-pick").on('click', function(e){
-		var rule = RULE[MODE[$("#room-mode").val()]];
+		var rule = RULE[MODE[$("#GameSelect").children('.selected').val()]];
 		var i;
 		// 한영에 따라 주제 목록을 다르게 보여줌
 		$("#injpick-list>div").show();
@@ -1005,7 +1040,8 @@ $(document).ready(function(){
 		
 		send('team', { value: $(e.currentTarget).attr('id').slice(5) });
 	}
-// 리플레이
+
+	// 리플레이
 	function initReplayDialog(){
 		$stage.dialog.replayView.attr('disabled', true);
 	}
@@ -1093,6 +1129,7 @@ $(document).ready(function(){
 		};
 		ws.onerror = function(e){
 			console.warn(L['error'], e);
+			isWelcome = false;
 		};
 	}
 });
@@ -1109,6 +1146,7 @@ $lib.Classic.roundReady = function(data){
 	
 	// 화면 리셋하고 게임 규칙이나 유형에 따라 보이는 것 조정 
 	clearBoard();
+	$data.is_defence = false
 	$data._roundTime = $data.room.time * 1000;
 	$stage.game.display.html(getCharText(data.char, data.subChar));
 	$stage.game.chain.show().html($data.chain = 0);
@@ -1118,6 +1156,10 @@ $lib.Classic.roundReady = function(data){
 	if($data.room.opts.missionplus === true){
 		$stage.game.items.show().css('opacity', 1).html($data.mission = data.mission);
 	}
+	if($data.room.opts.thememission === true){
+		$data.mission = data.mission
+		$stage.game.items.show().css('opacity', 1).html(L['theme_' + $data.mission]);
+	}
 	if(MODE[$data.room.mode] == "KAP"){
 		$(".jjoDisplayBar .graph-bar").css({ 'float': "right", 'text-align': "left" });
 	}
@@ -1125,6 +1167,9 @@ $lib.Classic.roundReady = function(data){
 	playSound('round_start');
 	recordEvent('roundReady', { data: data });
 };
+
+
+// 턴 시작
 $lib.Classic.turnStart = function(data){
 	$data.room.game.turn = data.turn;
 	if(data.seq) $data.room.game.seq = data.seq;
@@ -1141,7 +1186,12 @@ $lib.Classic.turnStart = function(data){
 			else $stage.talk.focus();
 		}
 	}
-	$stage.game.items.html($data.mission = data.mission);
+	if($data.room.opts.thememission){
+		$data.mission = data.mission
+		$stage.game.items.html(L['theme_' + $data.mission]);
+	}else{
+		$stage.game.items.html($data.mission = data.mission);
+	}
 	
 	ws.onmessage = _onMessage;
 	clearInterval($data._tTime);
@@ -1157,6 +1207,9 @@ $lib.Classic.turnStart = function(data){
 		data: data
 	});
 };
+
+
+// 턴 진행 중
 $lib.Classic.turnGoing = function(){
 	if(!$data.room) clearInterval($data._tTime);
 	$data._turnTime -= TICK;
@@ -1171,6 +1224,9 @@ $lib.Classic.turnGoing = function(){
 	
 	if(!$stage.game.roundBar.hasClass("round-extreme")) if($data._roundTime <= 5000) $stage.game.roundBar.addClass("round-extreme");
 };
+
+
+// 턴 종료
 $lib.Classic.turnEnd = function(id, data){
 	var $sc = $("<div>")
 		.addClass("deltaScore")
@@ -1206,7 +1262,10 @@ $lib.Classic.turnEnd = function(id, data){
 			.append($("<label>").html(data.hint.slice(0, hi + 1)))
 			.append($("<label>").css('color', "#AAAAAA").html(data.hint.slice(hi + 1)));
 	}
+	$data.is_defence = $data.wordtype == 'attack'
+	$data.wordtype = data.wordtype
 	if(data.bonus){
+		if($data.room.opts.thememission) playSound('mission');
 		mobile ? $sc.html("+" + (b.score - b.bonus) + "+" + b.bonus) : addTimeout(function(){
 			var $bc = $("<div>")
 				.addClass("deltaScore bonus")
@@ -1218,24 +1277,6 @@ $lib.Classic.turnEnd = function(id, data){
 	drawObtainedScore($uc, $sc).removeClass("game-user-current");
 	updateScore(id, getScore(id));
 };
-
-/**
- * Rule the words! KKuTu Online
- * Copyright (C) 2017 JJoriping(op@jjo.kr)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
 
 $lib.Jaqwi.roundReady = function(data){
 	var tv = L['jqTheme'] + ": " + L['theme_' + data.theme];
@@ -1453,136 +1494,6 @@ $lib.Crossword.turnGoing = $lib.Jaqwi.turnGoing;
 $lib.Crossword.turnHint = function(data){
 	playSound('fail');
 };
-
-/**
- * Rule the words! KKuTu Online
- * Copyright (C) 2017 JJoriping(op@jjo.kr)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
-﻿$lib.Typing.roundReady = function(data){
-	var i, len = $data.room.game.title.length;
-	var $l;
-	
-	$data._chatter = mobile ? $stage.game.hereText : $stage.talk;
-	clearBoard();
-	$data._round = data.round;
-	$data._roundTime = $data.room.time * 1000;
-	$data._fastTime = 10000;
-	$data._list = data.list.concat(data.list);
-	$data.chain = 0;
-	drawList();
-	drawRound(data.round);
-	playSound('round_start');
-	recordEvent('roundReady', { data: data });
-};
-function onSpace(e){
-	if(e.keyCode == 32){
-		$stage.chatBtn.trigger('click');
-		e.preventDefault();
-	}
-}
-function drawList(){
-	var wl = $data._list.slice($data.chain);
-	var lv = $data.room.opts.proverb ? 1 : 5;
-	var pts = "";
-	var w0l = wl[0].length;
-	
-	if(w0l >= 20) pts = "18px";
-	if(w0l >= 50) pts = "15px";
-	$stage.game.display.css('font-size', pts);
-	wl[0] = "<label style='color: #FFFF44;'>" + wl[0] + "</label>";
-	$stage.game.display.html(wl.slice(0, lv).join(' '));
-	$stage.game.chain.show().html($data.chain);
-	$(".jjo-turn-time .graph-bar")
-		.width("100%")
-		.html(wl.slice(lv, 2 * lv).join(' '))
-		.css({ 'text-align': "center", 'background-color': "#70712D" });
-}
-$lib.Typing.spaceOn = function(){
-	if($data.room.opts.proverb) return;
-	$data._spaced = true;
-	$("body").on('keydown', "#" + $data._chatter.attr('id'), onSpace);
-};
-$lib.Typing.spaceOff = function(){
-	delete $data._spaced;
-	$("body").off('keydown', "#" + $data._chatter.attr('id'), onSpace);
-};
-$lib.Typing.turnStart = function(data){
-	if(!$data._spectate){
-		$stage.game.here.show();
-		if(mobile) $stage.game.hereText.val("").focus();
-		else $stage.talk.val("").focus();
-		$lib.Typing.spaceOn();
-	}
-	ws.onmessage = _onMessage;
-	clearInterval($data._tTime);
-	clearTrespasses();
-	$data._tTime = addInterval(turnGoing, TICK);
-	$data._roundTime = data.roundTime;
-	playBGM('jaqwi');
-	recordEvent('turnStart', {
-		data: data
-	});
-};
-$lib.Typing.turnGoing = $lib.Jaqwi.turnGoing;
-$lib.Typing.turnEnd = function(id, data){
-	var $sc = $("<div>")
-		.addClass("deltaScore")
-		.html("+" + data.score);
-	var $uc = $("#game-user-" + id);
-	
-	if(data.error){
-		$data.chain++;
-		drawList();
-		playSound('fail');
-	}else if(data.ok){
-		if($data.id == id){
-			$data.chain++;
-			drawList();
-			playSound('mission');
-			pushHistory(data.value, "");
-		}else if($data._spectate){
-			playSound('mission');
-		}
-		addScore(id, data.score);
-		drawObtainedScore($uc, $sc);
-		updateScore(id, getScore(id));
-	}else{
-		clearInterval($data._tTime);
-		$lib.Typing.spaceOff();
-		$stage.game.here.hide();
-		stopBGM();
-		playSound('horr');
-		addTimeout(drawSpeed, 1000, data.speed);
-		if($data._round < $data.room.round) restGoing(10);
-	}
-};
-function restGoing(rest){
-	$(".jjo-turn-time .graph-bar")
-		.html(rest + L['afterRun']);
-	if(rest > 0) addTimeout(restGoing, 1000, rest - 1);
-}
-function drawSpeed(table){
-	var i;
-	
-	for(i in table){
-		$("#game-user-" + i + " .game-user-score").empty()
-			.append($("<div>").css({ 'float': "none", 'color': "#4444FF", 'text-align': "center" }).html(table[i] + "<label style='font-size: 11px;'>" + L['kpm'] + "</label>"));
-	}
-}
 
 /**
  * Rule the words! KKuTu Online
@@ -1820,117 +1731,6 @@ $lib.Daneo.turnEnd = function(id, data){
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-$lib.Sock.roundReady = function(data, spec){
-	var turn = data.seq ? data.seq.indexOf($data.id) : -1;
-	
-	clearBoard();
-	$data._relay = true;
-	$(".jjoriping,.rounds,.game-body").addClass("cw");
-	$data._va = [];
-	$data._lang = RULE[MODE[$data.room.mode]].lang;
-	$data._board = data.board;
-	$data._maps = [];
-	$data._roundTime = $data.room.time * 1000;
-	$data._fastTime = 10000;
-	$stage.game.items.hide();
-	$stage.game.bb.show();
-	$lib.Sock.drawDisplay();
-	drawRound(data.round);
-	if(!spec) playSound('round_start');
-	clearInterval($data._tTime);
-};
-$lib.Sock.turnEnd = function(id, data){
-	var $sc = $("<div>").addClass("deltaScore").html("+" + data.score);
-	var $uc = $("#game-user-" + id);
-	var key;
-	var i, j, l;
-	
-	if(data.score){
-		key = data.value;
-		l = key.length;
-		$data._maps.push(key);
-		for(i=0; i<l; i++){
-			$data._board = $data._board.replace(key.charAt(i), "　");
-		}
-		if(id == $data.id){
-			playSound('success');
-		}else{
-			playSound('mission');
-		}
-		$lib.Sock.drawDisplay();
-		addScore(id, data.score);
-		updateScore(id, getScore(id));
-		drawObtainedScore($uc, $sc);
-	}else{
-		stopBGM();
-		$data._relay = false;
-		playSound('horr');
-	}
-};
-$lib.Sock.drawMaps = function(){
-	var i;
-	
-	$stage.game.bb.empty();
-	$data._maps.sort(function(a, b){ return b.length - a.length; }).forEach(function(item){
-		$stage.game.bb.append($word(item));
-	});
-	function $word(text){
-		var $R = $("<div>").addClass("bb-word");
-		var i, len = text.length;
-		var $c;
-		
-		for(i=0; i<len; i++){
-			$R.append($c = $("<div>").addClass("bb-char").html(text.charAt(i)));
-			// if(text.charAt(i) != "？") $c.css('color', "#EEEEEE");
-		}
-		return $R;
-	}
-};
-$lib.Sock.drawDisplay = function(){
-	var $a = $("<div>").css('height', "100%"), $c;
-	var va = $data._board.split("");
-	var size = ($data._lang == "ko") ? "12.5%" : "10%";
-	
-	va.forEach(function(item, index){
-		$a.append($c = $("<div>").addClass("sock-char sock-" + item).css({ width: size, height: size }).html(item));
-		if($data._va[index] && $data._va[index] != item){
-			$c.html($data._va[index]).addClass("sock-picked").animate({ 'opacity': 0 }, 500);
-		}
-	});
-	$data._va = va;
-	$stage.game.display.empty().append($a);
-	$lib.Sock.drawMaps();
-};
-$lib.Sock.turnStart = function(data, spec){
-	var i, j;
-	
-	clearInterval($data._tTime);
-	$data._tTime = addInterval(turnGoing, TICK);
-	playBGM('jaqwi');
-};
-$lib.Sock.turnGoing = $lib.Jaqwi.turnGoing;
-$lib.Sock.turnHint = function(data){
-	playSound('fail');
-};
-
-/**
- * Rule the words! KKuTu Online
- * Copyright (C) 2017 JJoriping(op@jjo.kr)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-
 var spamWarning = 0;
 var spamCount = 0;
 // var smile = 94, tag = 35;
@@ -1989,18 +1789,22 @@ function activeResize(){
 }
 
 function showDialog($d, noToggle){
-	// var size = [ $(window).width(), $(window).height() ];
 	
 	if(!noToggle && ($d.css("visibility") == 'visible')){
 		hideDialog($d)
 		return false;
 	}else{
 		// 다이얼로그를 켤 때
+		var size = [ $(window).width(), $(window).height() ];
+		$d.css('left', (size[0] - $d.width()) * 0.5)
+		$d.css('top', (size[1] - $d.height()) * 0.5)
+
 		$(".dialog-front").removeClass("dialog-front");
 		// $d.show().addClass("dialog-front")
 		$d.addClass("dialog-front")
 		$d.addClass("opened");
 		/*
+		// 다이얼로그 위치 조정
 		$d.show().addClass("dialog-front").css({
 			'left': (size[0] - $d.width()) * 0.5,
 			'top': (size[1] - $d.height()) * 0.5
@@ -2162,7 +1966,6 @@ function checkAge(){
 function onMessage(data){
 	var i;
 	var $target;
-	console.log(data)
     switch (data.type) {
         case 'recaptcha':
             var $introText = $("#intro-text");
@@ -2190,7 +1993,10 @@ function onMessage(data){
 			$data._playTime = data.playTime;
 			$data._okg = data.okg;
 			$data._gaming = false;
+			$data.nickname = data.nickname;
+			$data.exordial = data.exordial;
 			$data.box = data.box;
+			$data.nickLimit = data.nickLimit;
 			if(data.test) alert(L['welcomeTestServer']);
 			if(location.hash[1]) tryJoin(location.hash.slice(1));
 			updateUI(undefined, true);
@@ -2207,12 +2013,13 @@ function onMessage(data){
 			updateUserList();
 			break;
 		case 'connRoom':
+			// 빠른 입장으로 들어간 경우
 			if($data._preQuick){
 				playSound('success');
 				hideDialog($stage.dialog.quick);
 				delete $data._preQuick;
 			}
-			hideDialog($stage.dialog.quick);
+			hideDialog($stage.dialog.quick); // 왜 두 번?
 			$data.setUser(data.user.id, data.user);
 			$target = $data.usersR[data.user.id] = data.user;
 			
@@ -2268,6 +2075,21 @@ function onMessage(data){
 		case 'user':
 			$data.setUser(data.id, data);
 			if($data.room) updateUI($data.room.id == data.place);
+			break;
+		case 'reloadData':
+			break;
+			$data.id = data.id;
+			$data.admin = data.admin;
+			if(!$data._gaming) $data.users = data.users;
+			$data.rooms = data.rooms;
+			$data.friends = data.friends;
+			$data._playTime = data.playTime;
+			$data._okg = data.okg;
+			$data.nickname = data.nickname;
+			$data.exordial = data.exordial;
+			$data.box = data.box;
+			updateUI(undefined, true);
+			updateCommunity();
 			break;
 		case 'friends':
 			$data._friends = {};
@@ -2409,9 +2231,8 @@ function onMessage(data){
 		case 'error':
 			i = data.message || "";
 			if(data.code == 401){
-				/* 로그인
 				$.cookie('preprev', location.href);
-				location.href = "/login?desc=login_kkutu"; */
+				location.href = "/login?desc=login_kkutu";
 			}else if(data.code == 403){
 				loading();
 			}else if(data.code == 406){
@@ -2475,6 +2296,7 @@ function welcome(){
 	}, 1000);
 	
 	if($data.admin) console.log("관리자 모드");
+	isWelcome = true;
 }
 function getKickText(profile, vote){
 	var vv = L['agree'] + " " + vote.Y + ", " + L['disagree'] + " " + vote.N + L['kickCon'];
@@ -2605,10 +2427,12 @@ function processRoom(data){
 	data.myRoom = ($data.place == data.room.id) || (data.target == $data.id);
 	if(data.myRoom){
 		$target = $data.users[data.target];
+		// 추방일 경우
 		if(data.kickVote){
 			notice(getKickText($target.profile, data.kickVote));
 			if($target.id == data.id) alert(L['hasKicked']);
 		}
+		// room의 players에 자신이 없을 경우 로비로 돌아감
 		if(data.room.players.indexOf($data.id) == -1){
 			if($data.room) if($data.room.gaming){
 				stopAllSounds();
@@ -2636,6 +2460,7 @@ function processRoom(data){
 				delete $data._room;
 			}
 		}else{
+			// 연습일 경우
 			if(data.room.practice && !$data.practicing){
 				$data.practicing = true;
 				$data._room = $data.room;
@@ -2643,6 +2468,7 @@ function processRoom(data){
 				$data.__master = $data.master;
 				$data.__players = $data._players;
 			}
+			// 방 정보 불러 옴
 			if($data.room){
 				$data._players = $data.room.players.toString();
 				$data._master = $data.room.master;
@@ -2736,13 +2562,14 @@ function updateUI(myRoom, refresh){
 	$stage.box.roomList.hide();
 	$stage.box.shop.hide();
 	$stage.box.dictionary.hide();
-	$(".rooms-create-hover").hide();
 	if(only == "for-lobby"){
 		$data._ar_first = true;
 		$stage.box.userList.show();
 		if($data._shop){
+			$stage.menu.dict.removeClass("toggled");
 			$stage.box.shop.show();
 		}else if($data._dict){
+			$stage.menu.shop.removeClass("toggled");
 			$stage.box.dictionary.show();
 		}else{
 			$(".rooms-create-hover").show();
@@ -2764,6 +2591,7 @@ function updateUI(myRoom, refresh){
 			$stage.menu.ready.removeClass("toggled");
 			$(".team-selector").removeClass("team-unable");
 			$("#team-" + $data.users[$data.id].game.team).addClass("team-chosen");
+			if($data.room.botroom) return $stage.menu.ready.trigger('click');
 			if($data.opts.ar && $data._ar_first){
 				$stage.menu.ready.addClass("toggled");
 				$stage.menu.ready.trigger('click');
@@ -2836,7 +2664,15 @@ function checkRoom(modify){
 	}
 	if($data._master != $data.room.master){
 		u = $data.users[$data.room.master];
-		notice((u.profile.title || u.profile.name) + L['hasMaster']);
+		if($data.room.botroom){
+			for(i in $data.robots){
+				bm = $data.robots[i];
+				break;
+			}
+			notice((bm.profile.title || bm.profile.name) + L['hasAppeared']);
+		}else{
+			notice((u.profile.title || u.profile.name) + L['hasMaster']);
+		}
 	}
 	$data._players = $data.room.players.toString();
 	$data._master = $data.room.master;
@@ -2990,16 +2826,18 @@ function roomListBar(o){
 	if(o.botroom){
 		$R.addClass("bot-room");
 		if(o.battery > 3){
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-full'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-full'></i>")
 		}else if(o.battery == 3){
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-three-quarters'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-three-quarters'></i>")
 		}else if(o.battery == 2){
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-half'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-half'></i>")
 		}else if(o.battery == 1){
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-quarter'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-quarter'></i>")
 		}else{
-			$R.append($("<div>").addClass("rooms-lock").html("<i class='fas fa-battery-empty'></i>"))
+			$batt = $("<div>").addClass("rooms-lock tooltip").html("<i class='fas fa-battery-empty'></i>")
 		}
+		$batt.append($("<div>").addClass("tooltiptext").html("<h4>현재 몬스터 체력</h4><h3>" + o.battery + " / 4</h3>"))
+		$R.append($batt)
 	}else{ o.battery > 7
 		$R.append($("<div>").addClass("rooms-lock").html(o.password ? "<i class='fas fa-lock'></i>" : "<i class='fas fa-unlock'></i>"))
 	}
@@ -3084,7 +2922,7 @@ function updateRoom(gaming){
 	}else{
 		$r = $(".room-users").empty();
 		spec = $data.users[$data.id].game.form == "S";
-		// 참가자
+		// 참가자들마다 보이게 만들기
 		for(i in $data.room.players){
 			o = $data.users[$data.room.players[i]] || $data.room.players[i];
 			if(!o.game) continue;
@@ -3111,6 +2949,18 @@ function updateRoom(gaming){
 			);
 			renderMoremi($m, o.equip);
 			if(spec) $z.hide();
+			/*
+			if(o.robot){
+				$r.append(
+					$("<button>").addClass('delete-bot').append(
+						$("<i>").addClass('fas').addClass('fa-minus-square').addClass('for-master')
+					).attr('id', "bor-delet-"+o.id).on('click', function(e){
+						$data._profiled = $(e.currentTarget).attr('id').slice(10);
+						send('kick', { robot: $data.robots.hasOwnProperty($data._profiled), target: $data._profiled });
+					})
+				)
+			}
+			*/
 			if(o.id == $data.room.master){
 				$y.addClass("room-user-master").html(L['master'] + prac + (spec || ''));
 			}else if(spec){
@@ -3137,16 +2987,16 @@ function updateRoom(gaming){
 	// 유저 수에 따라 자연스럽게 창 크기 조정
 	if($data.room.players.length < 4){
 		$(".room-user").width(224)
-		$(".room-user").css('zoom', 1.3)
+		$(".room-user").css('zoom', 1.25)
 	}else if($data.room.players.length < 7){
 		$(".room-user").width(300)
-		$(".room-user").css('zoom', 1)
+		$(".room-user").css('zoom', 0.95)
 	}else if($data.room.players.length < 9){
 		$(".room-user").width(224)
-		$(".room-user").css('zoom', 1)
+		$(".room-user").css('zoom', 0.95)
 	}else if($data.room.players.length < 11){
 		$(".room-user").width(224)
-		$(".room-user").css('zoom', 0.8)
+		$(".room-user").css('zoom', 0.75)
 	}else{
 		$(".room-user").width(224)
 		$(".room-user").css('zoom', 0.5)
@@ -3247,6 +3097,7 @@ function drawMyDress(avGroup){
 	renderMoremi($view, my.equip);
 	$(".dress-type.selected").removeClass("selected");
 	$("#dress-type-all").addClass("selected");
+	$("#dress-nickname").val(my.nickname);
 	$("#dress-exordial").val(my.exordial);
 	drawMyGoods(avGroup || true);
 }
@@ -3278,7 +3129,7 @@ function renderGoods($target, preId, filter, equip, onClick){
 		};
 		if(!q.hasOwnProperty("value") && !equipped) continue;
 		if(!isAll) if(filter.indexOf(obj.group) == -1) continue;
-		$target.append($item = $("<div>").addClass("dress-item")
+		$target.append($item = $("<div>").addClass("dress-item").addClass("tooltip")
 			.append(getImage(obj.image).addClass("dress-item-image").html("x" + q.value))
 			.append(explainGoods(obj, equipped, q.expire))
 		);
@@ -3736,7 +3587,7 @@ function replayReady(){
 	$stage.box.userList.hide();
 	$stage.box.roomList.hide();
 	$stage.box.game.show();
-	$stage.dialog.replay.hide();
+	hideDialog($stage.dialog.replay)
 	gameReady();
 	updateRoom(true);
 	$data.$gp = $(".GameBox .product-title").empty()
@@ -3917,8 +3768,8 @@ function clearBoard(){
 	loading();
 	$stage.game.here.hide();
 	hideDialog($stage.dialog.result)
-	$stage.dialog.dress.hide();
-	$stage.dialog.charFactory.hide();
+	hideDialog($stage.dialog.dress)
+	hideDialog($stage.dialog.charFactory)
 	$(".jjoriping,.rounds,.game-body").removeClass("cw");
 	$stage.game.display.empty();
 	$stage.game.chain.hide();
@@ -4126,6 +3977,7 @@ function roundEnd(result, data){
 		}, 500);
 	}, 2000);
 	stopRecord();
+	if($data.room.botroom) send('leave');
 }
 function drawRanking(ranks){
 	var $b = $(".result-board").empty();
@@ -4188,7 +4040,7 @@ function loadShop(){
 			if(item.cost < 0) return;
 			var url = iImage(false, item);
 			
-			$body.append($("<div>").attr('id', "goods_" + item._id).addClass("goods")
+			$body.append($("<div>").attr('id', "goods_" + item._id).addClass("goods").addClass("tooltip")
 				.append($("<div>").addClass("jt-image goods-image").css('background-image', "url(" + url + ")"))
 				.append($("<div>").addClass("goods-title").html(iName(item._id)))
 				.append($("<div>").addClass("goods-cost").html(commify(item.cost) + L['ping']))
@@ -4216,7 +4068,7 @@ function filterShop(by){
 }
 function explainGoods(item, equipped, expire){
 	var i;
-	var $R = $("<div>").addClass("expl dress-expl")
+	var $R = $("<div>").addClass("tooltiptext dress-expl")
 		.append($("<div>").addClass("dress-item-title").html(iName(item._id) + (equipped ? L['equipped'] : "")))
 		.append($("<div>").addClass("dress-item-group").html(L['GROUP_' + item.group]))
 		.append($("<div>").addClass("dress-item-expl").html(iDesc(item._id)));
@@ -4290,6 +4142,7 @@ function vibrate(level){
 		addTimeout(vibrate, 50, level * 0.7);
 	}, 50);
 }
+// 단어를 화면에 보여주는 부분(뚠 뚠 뚠뚠 뚠))
 function pushDisplay(text, mean, theme, wc){
 	var len;
 	var mode = MODE[$data.room.mode];
@@ -4314,10 +4167,14 @@ function pushDisplay(text, mean, theme, wc){
 	}
 	kkt = 'K'+$data._speed;
 	
+	// 박자 정복 있다면
 	if(beat){
+		// 박자마다
+		var index = 0;
 		for(i in beat){
-			if(beat[i] == "0") continue;
-			
+			if(beat[i] == "0") continue;  // 쉼표면 패스
+
+			// 텍스트(한 글자)
 			$stage.game.display.append($l = $("<div>")
 				.addClass("display-text")
 				.css({ 'float': isRev ? "right" : "left", 'margin-top': -6, 'font-size': 36 })
@@ -4326,13 +4183,23 @@ function pushDisplay(text, mean, theme, wc){
 			);
 			j++;
 			addTimeout(function($l, snd){
+				index += 1;
 				var anim = { 'margin-top': 0 };
-				
+				console.log(text.length)
+				console.log(j)
 				playSound(snd);
 				if($l.html() == $data.mission){
 					playSound('mission');
 					$l.css({ 'color': "#66FF66" });
 					anim['font-size'] = 24;
+				}else if($data.wordtype == 'attack' && text.length == index){
+					playSound('attack');
+					$l.css({ 'color': "#FF5A5A" });
+					anim['font-size'] = 28;
+				}else if($data.is_defence && index == 1){
+					playSound('defence');
+					$l.css({ 'color': "#5B5AFF" });
+					anim['font-size'] = 28;
 				}else{
 					anim['font-size'] = 20;
 				}
@@ -4744,7 +4611,6 @@ function tryJoin(id){
 	if(!$data.rooms[id]) return;
 	if($data.rooms[id].botroom && !$data.rooms[id].gaming){
 		if (!confirm("몬스터 룸에 입장하시겠습니까?")) return;
-		return send('into-botroom', { id: id, password: pw });
 	}
 	if($data.rooms[id].password){
 		pw = prompt(L['putPassword']);
@@ -4991,24 +4857,6 @@ function yell(msg){
 		}, 3000);
 	}, 1000);
 }
-
-/**
- * Rule the words! KKuTu Online
- * Copyright (C) 2017 JJoriping(op@jjo.kr)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
 
 delete window.WebSocket;
 delete window.setInterval;
